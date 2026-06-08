@@ -7,6 +7,7 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import { auth } from './lib/auth'
+import abogadosRouter from './routes/abogados'
 
 const app = new Hono()
 
@@ -20,6 +21,8 @@ app.use('*', cors({
 app.on(['GET', 'POST'], '/api/auth/**', (c) => {
   return auth.handler(c.req.raw)
 })
+
+app.route('/api/abogados', abogadosRouter)
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 

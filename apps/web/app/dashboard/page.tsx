@@ -2,10 +2,26 @@
 
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function DashboardPage() {
   const { data: session, isPending } = authClient.useSession()
   const router = useRouter()
+
+  useEffect(() => {
+    if (session?.user) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/abogados/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: session.user.id,
+          email: session.user.email,
+          nombre: session.user.name,
+        }),
+      }).catch(console.error)
+    }
+  }, [session])
 
   async function handleSignOut() {
     await authClient.signOut({

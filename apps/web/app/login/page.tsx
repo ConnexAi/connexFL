@@ -9,7 +9,7 @@ export default function LoginPage() {
   async function handleGoogleLogin() {
     await authClient.signIn.social({
       provider: 'google',
-      callbackURL: '/dashboard',
+      callbackURL: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/dashboard`,
     })
   }
 
