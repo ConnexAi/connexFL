@@ -20,6 +20,9 @@ importers:
       better-auth:
         specifier: ^1.6.14
         version: 1.6.14(drizzle-kit@0.31.10)(next@15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(pg@8.21.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       hono:
         specifier: ^4.7.9
         version: 4.12.23
