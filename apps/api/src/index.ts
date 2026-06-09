@@ -7,7 +7,9 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import { auth } from './lib/auth'
+import { authMiddleware } from './middleware/auth'
 import abogadosRouter from './routes/abogados'
+import empresasRouter from './routes/empresas'
 
 const app = new Hono()
 
@@ -23,6 +25,9 @@ app.on(['GET', 'POST'], '/api/auth/**', (c) => {
 })
 
 app.route('/api/abogados', abogadosRouter)
+
+app.use('/api/empresas/*', authMiddleware)
+app.route('/api/empresas', empresasRouter)
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
