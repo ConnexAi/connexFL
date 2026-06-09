@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-bg: oklch(0.115 0.012 50);
+  --color-surface: oklch(0.158 0.010 50);
+  --color-surface-2: oklch(0.205 0.009 50);
+
+  /* Borders */
+  --color-border: oklch(0.265 0.008 50);
+  --color-border-subtle: oklch(0.185 0.007 50);
+
+  /* Text */
+  --color-ink: oklch(0.920 0.005 50);
+  --color-ink-2: oklch(0.600 0.007 50);
+  --color-ink-3: oklch(0.385 0.005 50);
+
+  /* Terracotta — primary accent */
+  --color-terracotta: oklch(0.575 0.135 32);
+  --color-terracotta-hover: oklch(0.625 0.135 32);
+  --color-terracotta-dim: oklch(0.575 0.135 32 / 0.14);
+
+  /* Ochre — high scores, data highlights */
+  --color-ochre: oklch(0.742 0.130 76);
+  --color-ochre-dim: oklch(0.742 0.130 76 / 0.14);
+
+  /* Amber — mid scores */
+  --color-amber: oklch(0.742 0.115 63);
+  --color-amber-dim: oklch(0.742 0.115 63 / 0.14);
+
+  /* Navigation */
+  --color-nav-hover: oklch(0.175 0.010 50);
+
+  /* Typography */
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+@layer base {
+  html {
+    background-color: oklch(0.115 0.012 50);
+    color: oklch(0.920 0.005 50);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: oklch(0.575 0.135 32 / 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
