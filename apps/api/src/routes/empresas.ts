@@ -125,6 +125,76 @@ empresasRouter.post('/', async (c) => {
   }
 })
 
+// POST /api/empresas/:id/archivos — agregar archivos a empresa existente
+empresasRouter.post('/:id/archivos', async (c) => {
+  const user = c.get('user')
+  const empresaId = c.req.param('id')
+
+  try {
+    const result = await pool.query(
+      `SELECT e.id, e.archivos_path, a.id as abogado_id FROM empresas e
+       INNER JOIN abogados a ON e.abogado_id = a.id
+       WHERE e.id = $1 AND a.email = $2`,
+      [empresaId, user.email]
+    )
+
+    if (result.rows.length === 0) {
+      return c.json({ error: 'Empresa no encontrada' }, 404)
+    }
+
+    const abogadoId = result.rows[0].abogado_id
+    const existingPaths: string[] = result.rows[0].archivos_path ?? []
+
+    const formData = await c.req.formData()
+    const archivos = formData.getAll('archivos') as File[]
+
+    if (archivos.length === 0) {
+      return c.json({ error: 'Al menos un archivo es requerido' }, 400)
+    }
+
+    const empresaDir = join(UPLOAD_DIR, 'empresas', empresaId)
+    mkdirSync(empresaDir, { recursive: true })
+
+    const newPaths: string[] = []
+
+    for (const archivo of archivos) {
+      if (archivo instanceof File) {
+        const buffer = Buffer.from(await archivo.arrayBuffer())
+        const filename = `${Date.now()}_${archivo.name}`
+        const filepath = join(empresaDir, filename)
+        writeFileSync(filepath, buffer)
+        newPaths.push(filepath)
+      }
+    }
+
+    const allPaths = [...existingPaths, ...newPaths]
+
+    await pool.query(
+      `UPDATE empresas SET archivos_path = $1, estado = 'pendiente' WHERE id = $2`,
+      [allPaths, empresaId]
+    )
+
+    const webhookUrl = process.env.N8N_WEBHOOK_URL
+    const webhookSecret = process.env.N8N_WEBHOOK_SECRET
+
+    if (webhookUrl) {
+      fetch(`${webhookUrl}/empresa-context`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(webhookSecret ? { 'x-webhook-secret': webhookSecret } : {}),
+        },
+        body: JSON.stringify({ empresaId, abogadoId, archivosPath: allPaths }),
+      }).catch(err => console.error('Error disparando webhook n8n:', err))
+    }
+
+    return c.json({ ok: true, archivos_path: allPaths })
+  } catch (error) {
+    console.error('Error agregando archivos a empresa:', error)
+    return c.json({ error: 'Error al agregar archivos' }, 500)
+  }
+})
+
 // GET /api/empresas/:id — obtener empresa por id
 empresasRouter.get('/:id', async (c) => {
   const user = c.get('user')

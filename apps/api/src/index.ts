@@ -10,6 +10,7 @@ import { auth } from './lib/auth'
 import { authMiddleware } from './middleware/auth'
 import abogadosRouter from './routes/abogados'
 import empresasRouter from './routes/empresas'
+import pliegosRouter from './routes/pliegos'
 
 const app = new Hono()
 
@@ -28,6 +29,9 @@ app.route('/api/abogados', abogadosRouter)
 
 app.use('/api/empresas/*', authMiddleware)
 app.route('/api/empresas', empresasRouter)
+
+app.use('/api/pliegos/*', authMiddleware)
+app.route('/api/pliegos', pliegosRouter)
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 

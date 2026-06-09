@@ -1,19 +1,46 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
 import type { EmpresaDetail, EstadoEmpresa } from '@/lib/types'
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
-const ACCEPT_FILES = ['.pdf', '.doc', '.docx', '.xlsx', '.xls']
+// ---------------------------------------------------------------------------
+// Document definitions — 10 documentos esenciales de Ximena
+// ---------------------------------------------------------------------------
+
+interface DocDef {
+  id: string
+  label: string
+  note?: string
+  isImportant?: boolean
+}
+
+const ESSENTIAL_DOCS: DocDef[] = [
+  { id: 'camara_comercio', label: 'Certificado de existencia y representación legal', note: 'Cámara de Comercio' },
+  { id: 'cedula_representante', label: 'Cédula del representante legal y libreta militar' },
+  { id: 'contraloria', label: 'Antecedentes Contraloría' },
+  { id: 'procuraduria', label: 'Antecedentes Procuraduría' },
+  { id: 'judiciales', label: 'Antecedentes judiciales' },
+  { id: 'rut', label: 'RUT' },
+  { id: 'rup', label: 'RUP — Registro Único de Proponentes', note: 'Descárgalo desde Cámara de Comercio en PDF' },
+  { id: 'parafiscales', label: 'Certificado de parafiscales' },
+  { id: 'sg_sst', label: 'Certificado SG-SST', note: 'ARL y Ministerio de Trabajo' },
+]
+
+const CUADRO_EXPERIENCIA: DocDef = {
+  id: 'cuadro_experiencia',
+  label: 'Cuadro de experiencia',
+  note: 'Este documento define qué licitaciones puede ganar la empresa',
+  isImportant: true,
+}
+
+const ALL_DOCS = [...ESSENTIAL_DOCS, CUADRO_EXPERIENCIA]
+const INITIAL_PENDING: Record<string, File | null> = Object.fromEntries(ALL_DOCS.map((d) => [d.id, null]))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,11 +56,6 @@ function formatDate(iso: string): string {
 
 function basename(path: string): string {
   return path.split(/[/\\]/).pop() ?? path
-}
-
-function formatSize(name: string): string {
-  // Server paths don't carry size info; show name only
-  return basename(name)
 }
 
 const estadoMap: Record<EstadoEmpresa, { label: string; cls: string }> = {
@@ -64,6 +86,111 @@ function IconFile() {
       <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
       <path d="M9.5 1.5V4.5h3" />
     </svg>
+  )
+}
+
+function IconX() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <line x1="3" y1="3" x2="13" y2="13" /><line x1="13" y1="3" x2="3" y2="13" />
+    </svg>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// DocumentSlot
+// ---------------------------------------------------------------------------
+
+function DocumentSlot({
+  doc,
+  file,
+  onChange,
+}: {
+  doc: DocDef
+  file: File | null
+  onChange: (f: File | null) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  function pick(f: File | undefined) {
+    if (f) onChange(f)
+  }
+
+  const loaded = file !== null
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Subir: ${doc.label}`}
+      className={[
+        'rounded-[12px] border transition-colors duration-150 cursor-pointer select-none outline-none',
+        'focus-visible:ring-1 focus-visible:ring-terracotta',
+        loaded
+          ? 'border-ochre bg-ochre-dim'
+          : isDragging
+            ? 'border-terracotta bg-terracotta-dim'
+            : doc.isImportant
+              ? 'border-ochre/40 bg-surface hover:border-ochre/70'
+              : 'border-border-subtle bg-surface hover:border-border',
+      ].join(' ')}
+      onClick={() => inputRef.current?.click()}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => pick(e.target.files?.[0])}
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      <div className="p-3.5 min-h-[82px] flex flex-col justify-between gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <p className={`text-[12px] font-medium leading-snug ${loaded ? 'text-ochre' : 'text-ink-2'}`}>
+            {doc.label}
+          </p>
+          <div className="shrink-0 mt-0.5">
+            {loaded ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onChange(null) }}
+                className="text-ochre hover:opacity-60 transition-opacity duration-100"
+                aria-label="Quitar archivo"
+              >
+                <IconX />
+              </button>
+            ) : doc.isImportant ? (
+              <span className="inline-flex items-center h-4 px-2 rounded-full bg-ochre-dim text-ochre text-[10px] font-semibold whitespace-nowrap">
+                Más importante
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div>
+          {loaded ? (
+            <p className="text-[11px] text-ochre/70 truncate font-mono">{file.name}</p>
+          ) : (
+            <>
+              {doc.note && (
+                <p className="text-[11px] text-ink-3 leading-snug mb-1">{doc.note}</p>
+              )}
+              <p className="text-[11px] text-ink-3">
+                {isDragging ? 'Suelta aquí' : 'Arrastra o haz clic · PDF'}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -112,15 +239,14 @@ export default function EmpresaDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File | null>>(INITIAL_PENDING)
+  const [pendingOtherFiles, setPendingOtherFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
 
   useEffect(() => {
-    if (!sessionPending && !session) {
-      router.push('/login')
-    }
+    if (!sessionPending && !session) router.push('/login')
   }, [session, sessionPending, router])
 
   useEffect(() => {
@@ -128,10 +254,7 @@ export default function EmpresaDetailPage() {
     setIsLoading(true)
     fetch(`${API}/api/empresas/${id}`, { credentials: 'include' })
       .then(async (res) => {
-        if (res.status === 404) {
-          router.replace('/dashboard/empresas')
-          return
-        }
+        if (res.status === 404) { router.replace('/dashboard/empresas'); return }
         if (!res.ok) throw new Error(`${res.status}`)
         const data: EmpresaDetail = await res.json()
         setEmpresa(data)
@@ -140,14 +263,29 @@ export default function EmpresaDetailPage() {
       .finally(() => setIsLoading(false))
   }, [session, id, router])
 
-  async function handleUploadFiles() {
-    if (uploadFiles.length === 0) return
+  const pendingCount = Object.values(pendingFiles).filter(Boolean).length + pendingOtherFiles.length
+
+  function setPendingFile(docId: string, f: File | null) {
+    setPendingFiles((prev) => ({ ...prev, [docId]: f }))
+  }
+
+  async function handleUpload() {
+    if (pendingCount === 0) return
     setIsUploading(true)
     setUploadError(null)
     setUploadSuccess(false)
 
     const formData = new FormData()
-    uploadFiles.forEach((f) => formData.append('archivos', f))
+    let idx = 0
+    ALL_DOCS.forEach((doc) => {
+      const f = pendingFiles[doc.id]
+      if (f) {
+        formData.append('archivos', f)
+        formData.append(`tipo_documento_${idx}`, doc.id)
+        idx++
+      }
+    })
+    pendingOtherFiles.forEach((f) => formData.append('archivos', f))
 
     try {
       const res = await fetch(`${API}/api/empresas/${id}/archivos`, {
@@ -160,8 +298,8 @@ export default function EmpresaDetailPage() {
         throw new Error((body as { error?: string }).error ?? `Error ${res.status}`)
       }
       setUploadSuccess(true)
-      setUploadFiles([])
-      // Refresh empresa data to show new files
+      setPendingFiles(INITIAL_PENDING)
+      setPendingOtherFiles([])
       const updated: EmpresaDetail = await fetch(`${API}/api/empresas/${id}`, { credentials: 'include' }).then((r) => r.json())
       setEmpresa(updated)
     } catch (err) {
@@ -211,7 +349,6 @@ export default function EmpresaDetailPage() {
 
   return (
     <>
-      {/* Topbar */}
       <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <Link
           href="/dashboard/empresas"
@@ -228,11 +365,10 @@ export default function EmpresaDetailPage() {
         </button>
       </header>
 
-      {/* Content */}
       <div className="flex-1 px-8 py-7 overflow-auto">
         <div className="max-w-2xl space-y-7">
 
-          {/* Info section */}
+          {/* Info */}
           <section className="rounded-[16px] border border-border-subtle p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
               <h2 className="text-[15px] font-semibold text-ink">{empresa.nombre}</h2>
@@ -258,12 +394,16 @@ export default function EmpresaDetailPage() {
             </dl>
           </section>
 
-          {/* Documents section */}
-          <section className="rounded-[16px] border border-border-subtle p-6">
-            <h3 className="text-[15px] font-semibold text-ink mb-4">Documentos</h3>
-
-            {archivos.length > 0 ? (
-              <ul className="space-y-1.5 mb-5" role="list">
+          {/* Documentos subidos */}
+          {archivos.length > 0 && (
+            <section className="rounded-[16px] border border-border-subtle p-6">
+              <h3 className="text-[14px] font-semibold text-ink mb-4">
+                Documentos subidos
+                <span className="ml-2 text-[12px] font-normal font-mono text-ink-3 tabular-nums">
+                  {archivos.length}
+                </span>
+              </h3>
+              <ul className="space-y-1.5" role="list">
                 {archivos.map((path, i) => (
                   <li key={i} className="flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-surface border border-border-subtle">
                     <IconFile />
@@ -271,40 +411,81 @@ export default function EmpresaDetailPage() {
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="text-[13px] text-ink-3 mb-5">Sin documentos subidos.</p>
-            )}
+            </section>
+          )}
 
-            <div className="space-y-3">
-              <p className="text-[12px] text-ink-3">Agrega más documentos a esta empresa.</p>
-              <DropZone
-                accept={ACCEPT_FILES}
-                multiple
-                onFiles={setUploadFiles}
-                isLoading={isUploading}
-              />
-              {uploadError && (
-                <p className="text-[12px] text-terracotta">{uploadError}</p>
-              )}
-              {uploadSuccess && (
-                <p className="text-[12px] text-ochre">Archivos subidos correctamente.</p>
-              )}
-              {uploadFiles.length > 0 && !isUploading && (
-                <button
-                  type="button"
-                  onClick={handleUploadFiles}
-                  className="px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-                >
-                  Subir archivos
-                </button>
+          {/* Agregar documentos */}
+          <section className="rounded-[16px] border border-border-subtle p-6">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <h3 className="text-[14px] font-semibold text-ink">
+                  {archivos.length === 0 ? 'Subir documentos' : 'Agregar documentos'}
+                </h3>
+                <p className="text-[12px] text-ink-3 mt-0.5">
+                  Solo PDF. Selecciona el tipo de documento para cada slot.
+                </p>
+              </div>
+              {pendingCount > 0 && (
+                <span className="text-[12px] font-mono tabular-nums text-ochre">
+                  {pendingCount} {pendingCount === 1 ? 'seleccionado' : 'seleccionados'}
+                </span>
               )}
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {ESSENTIAL_DOCS.map((doc) => (
+                <DocumentSlot
+                  key={doc.id}
+                  doc={doc}
+                  file={pendingFiles[doc.id] ?? null}
+                  onChange={(f) => setPendingFile(doc.id, f)}
+                />
+              ))}
+            </div>
+
+            <div className="mt-3">
+              <DocumentSlot
+                doc={CUADRO_EXPERIENCIA}
+                file={pendingFiles[CUADRO_EXPERIENCIA.id] ?? null}
+                onChange={(f) => setPendingFile(CUADRO_EXPERIENCIA.id, f)}
+              />
+            </div>
+
+            <div className="mt-5">
+              <p className="text-[12px] text-ink-3 mb-3">Otros documentos (estados financieros, referencias...)</p>
+              <DropZone
+                accept={['.pdf', '.doc', '.docx', '.xlsx', '.xls']}
+                multiple
+                onFiles={setPendingOtherFiles}
+                isLoading={isUploading}
+              />
+            </div>
+
+            {uploadError && (
+              <p className="mt-3 text-[12px] text-terracotta">{uploadError}</p>
+            )}
+            {uploadSuccess && (
+              <p className="mt-3 text-[12px] text-ochre">Documentos subidos correctamente.</p>
+            )}
+
+            {pendingCount > 0 && !isUploading && (
+              <button
+                type="button"
+                onClick={handleUpload}
+                className="mt-4 px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
+              >
+                Subir {pendingCount} {pendingCount === 1 ? 'documento' : 'documentos'}
+              </button>
+            )}
+            {isUploading && (
+              <p className="mt-4 text-[13px] text-ink-3">Subiendo documentos...</p>
+            )}
           </section>
 
-          {/* Analysis section — only when listo */}
+          {/* Análisis */}
           {empresa.estado === 'listo' && empresa.contexto_procesado && (
             <section className="rounded-[16px] border border-border-subtle p-6">
-              <h3 className="text-[15px] font-semibold text-ink mb-4">Análisis de contexto</h3>
+              <h3 className="text-[14px] font-semibold text-ink mb-4">Análisis de contexto</h3>
               <div className="text-[13px] text-ink-2 leading-relaxed whitespace-pre-wrap">
                 {empresa.contexto_procesado}
               </div>
@@ -316,13 +497,11 @@ export default function EmpresaDetailPage() {
               El perfil de esta empresa aún no ha sido procesado. El análisis se generará automáticamente.
             </div>
           )}
-
           {empresa.estado === 'procesando' && (
             <div className="px-4 py-3.5 rounded-[10px] bg-amber-dim border border-amber/20 text-[13px] text-amber">
               El perfil de la empresa está siendo procesado. Esto puede tomar unos minutos.
             </div>
           )}
-
           {empresa.estado === 'error' && (
             <div className="px-4 py-3.5 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
               Ocurrió un error al procesar la empresa. Contacta al administrador.
