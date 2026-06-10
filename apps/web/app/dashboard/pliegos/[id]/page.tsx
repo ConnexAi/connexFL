@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
-import type { PliegoDetail, EstadoPliego, EmpresaCompatible } from '@/lib/types'
+import { api } from '@/lib/api'
+import type { PliegoDetail, EstadoPliego, ComparacionConEmpresa } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -202,6 +203,10 @@ export default function PliegoDetailPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
 
+  const [comparaciones, setComparaciones] = useState<ComparacionConEmpresa[]>([])
+  const [comparLoading, setComparLoading] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
   const [selectedEmpresas, setSelectedEmpresas] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -226,6 +231,15 @@ export default function PliegoDetailPage() {
       .catch(() => setFetchError('No se pudo cargar el pliego. Intenta de nuevo.'))
       .finally(() => setIsLoading(false))
   }, [session, id, router])
+
+  useEffect(() => {
+    if (!pliego || pliego.estado !== 'listo') return
+    setComparLoading(true)
+    api.comparaciones.list(id)
+      .then(setComparaciones)
+      .catch(console.error)
+      .finally(() => setComparLoading(false))
+  }, [pliego, id])
 
   async function handleUploadFiles() {
     if (uploadFiles.length === 0) return
@@ -302,7 +316,6 @@ export default function PliegoDetailPage() {
 
   const { label: estadoLabel, cls: estadoCls } = estadoMap[pliego.estado]
   const archivos = pliego.archivos_path ?? []
-  const compatibles = pliego.empresas_compatibles ?? []
 
   return (
     <>
@@ -433,11 +446,11 @@ export default function PliegoDetailPage() {
             </div>
           ) : null}
 
-          {/* Compatible companies section */}
+          {/* Ranking de empresas */}
           {pliego.estado === 'listo' && (
             <section className="rounded-[16px] border border-border-subtle p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[15px] font-semibold text-ink">Empresas compatibles</h3>
+                <h3 className="text-[15px] font-semibold text-ink">Ranking de empresas</h3>
                 {selectedEmpresas.size > 0 && (
                   <button
                     type="button"
@@ -448,42 +461,72 @@ export default function PliegoDetailPage() {
                 )}
               </div>
 
-              {compatibles.length === 0 ? (
+              {comparLoading ? (
+                <div className="space-y-0">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-4 py-3.5 border-b border-border-subtle">
+                      <div className="w-4 h-4 bg-surface-2 rounded animate-pulse shrink-0" />
+                      <div className="flex-1 h-4 bg-surface-2 rounded animate-pulse" />
+                      <div className="w-16 h-6 bg-surface-2 rounded-full animate-pulse" />
+                      <div className="w-9 h-6 bg-surface-2 rounded-full animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : comparaciones.length === 0 ? (
                 <p className="text-[13px] text-ink-3">
-                  Las comparaciones se calcularán automáticamente cuando el análisis esté listo.
+                  Las comparaciones se calcularán automáticamente una vez el análisis esté listo.
                 </p>
               ) : (
                 <div className="space-y-0">
-                  {compatibles
-                    .slice()
-                    .sort((a, b) => b.score - a.score)
-                    .map((c) => (
-                      <div
-                        key={c.empresa_id}
-                        className="flex items-center gap-4 py-3.5 border-b border-border-subtle last:border-0"
-                      >
-                        <input
-                          type="checkbox"
-                          id={`empresa-${c.empresa_id}`}
-                          checked={selectedEmpresas.has(c.empresa_id)}
-                          onChange={() => toggleEmpresa(c.empresa_id)}
-                          className="accent-terracotta shrink-0"
-                        />
-                        <label
-                          htmlFor={`empresa-${c.empresa_id}`}
-                          className="flex-1 min-w-0 text-[14px] font-medium text-ink cursor-pointer truncate"
-                        >
-                          {c.empresa_nombre}
-                        </label>
-                        <ScoreBadge score={c.score} />
-                        <Link
-                          href={`/dashboard/comparaciones?empresa=${c.empresa_id}&pliego=${id}`}
-                          className="text-[12px] text-ink-3 hover:text-ink-2 whitespace-nowrap transition-colors duration-150"
-                        >
-                          Ver comparación
-                        </Link>
+                  {comparaciones.map((c) => {
+                    const score = c.score ?? 0
+                    const { recLabel, recCls } =
+                      score >= 70
+                        ? { recLabel: 'Participar', recCls: 'bg-ochre-dim text-ochre' }
+                        : score >= 40
+                          ? { recLabel: 'Revisar', recCls: 'bg-amber-dim text-amber' }
+                          : { recLabel: 'No participar', recCls: 'bg-terracotta-dim text-terracotta' }
+
+                    const isExpanded = expandedId === c.empresa_id
+
+                    return (
+                      <div key={c.empresa_id} className="border-b border-border-subtle last:border-0">
+                        <div className="flex items-center gap-4 py-3.5">
+                          <input
+                            type="checkbox"
+                            id={`empresa-${c.empresa_id}`}
+                            checked={selectedEmpresas.has(c.empresa_id)}
+                            onChange={() => toggleEmpresa(c.empresa_id)}
+                            className="accent-terracotta shrink-0"
+                          />
+                          <label
+                            htmlFor={`empresa-${c.empresa_id}`}
+                            className="flex-1 min-w-0 text-[14px] font-medium text-ink cursor-pointer truncate"
+                          >
+                            {c.empresa_nombre}
+                          </label>
+                          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${recCls}`}>
+                            {recLabel}
+                          </span>
+                          <ScoreBadge score={score} />
+                          {c.justificacion && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(isExpanded ? null : c.empresa_id)}
+                              className="text-[12px] text-ink-3 hover:text-ink-2 whitespace-nowrap transition-colors duration-150 shrink-0"
+                            >
+                              {isExpanded ? 'Ocultar' : 'Justificación'}
+                            </button>
+                          )}
+                        </div>
+                        {isExpanded && c.justificacion && (
+                          <div className="pb-3.5 pl-8 pr-2">
+                            <p className="text-[13px] text-ink-2 leading-relaxed">{c.justificacion}</p>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )
+                  })}
                 </div>
               )}
             </section>

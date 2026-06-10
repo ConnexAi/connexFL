@@ -11,6 +11,7 @@ import { authMiddleware } from './middleware/auth'
 import abogadosRouter from './routes/abogados'
 import empresasRouter from './routes/empresas'
 import pliegosRouter from './routes/pliegos'
+import comparacionesRouter from './routes/comparaciones'
 
 const app = new Hono()
 
@@ -32,6 +33,9 @@ app.route('/api/empresas', empresasRouter)
 
 app.use('/api/pliegos/*', authMiddleware)
 app.route('/api/pliegos', pliegosRouter)
+
+app.use('/api/comparaciones/*', authMiddleware)
+app.route('/api/comparaciones', comparacionesRouter)
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 

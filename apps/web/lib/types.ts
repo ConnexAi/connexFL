@@ -78,3 +78,17 @@ export interface EmpresaCompatible {
   empresa_nombre: string
   score: number
 }
+
+export interface ComparacionConEmpresa {
+  id: string
+  pliego_id: string
+  empresa_id: string
+  score: number | null
+  justificacion: string | null
+  fortalezas_relevantes: string[] | null
+  riesgos: string[] | null
+  empresa_nombre: string
+  nit: string
+  sector: string | null
+  created_at: string
+}

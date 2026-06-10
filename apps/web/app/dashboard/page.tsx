@@ -1,45 +1,30 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
 import Link from 'next/link'
+import { api } from '@/lib/api'
+import type { EmpresaListItem, PliegoListItem, EstadoPliego } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
-// Types
+// Helpers
 // ---------------------------------------------------------------------------
 
-type EstadoComparacion = 'en_analisis' | 'listo' | 'entregado'
-type EstadoPliego = 'en_analisis' | 'pendiente' | 'listo'
-
-interface Comparacion {
-  id: string
-  empresaNombre: string
-  pliegoTitulo: string
-  score: number
-  estado: EstadoComparacion
-  fecha: string
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-CO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
-interface PliegoEnCola {
-  id: string
-  titulo: string
-  estado: EstadoPliego
-  fecha: string
+const estadoPliegoMap: Record<EstadoPliego, { label: string; cls: string }> = {
+  pendiente:  { label: 'Pendiente',  cls: 'bg-surface-2 text-ink-3' },
+  analizando: { label: 'Analizando', cls: 'bg-amber-dim text-amber' },
+  listo:      { label: 'Listo',      cls: 'bg-ochre-dim text-ochre' },
+  error:      { label: 'Error',      cls: 'bg-terracotta-dim text-terracotta' },
 }
-
-// ---------------------------------------------------------------------------
-// Placeholder data — replace with API calls once endpoints are ready
-// ---------------------------------------------------------------------------
-
-const comparaciones: Comparacion[] = []
-const pliegosEnCola: PliegoEnCola[] = []
-
-const statsConfig = [
-  { label: 'Empresas', value: 0, href: '/dashboard/empresas' },
-  { label: 'Pliegos', value: 0, href: '/dashboard/pliegos' },
-  { label: 'Comparaciones', value: 0, href: '/dashboard/comparaciones' },
-]
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -75,57 +60,6 @@ function IconFileDoc() {
   )
 }
 
-function IconBuilding() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="6.5" width="12" height="8" rx=".5" />
-      <path d="M5.5 6.5V4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v2.5" />
-      <line x1="6.5" y1="11" x2="9.5" y2="11" />
-    </svg>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Small components
-// ---------------------------------------------------------------------------
-
-function ScoreBadge({ score }: { score: number }) {
-  const cls =
-    score >= 70
-      ? 'bg-ochre-dim text-ochre'
-      : score >= 40
-        ? 'bg-amber-dim text-amber'
-        : 'bg-terracotta-dim text-terracotta'
-  return (
-    <span
-      className={`inline-flex items-center justify-center h-6 min-w-[2.25rem] px-2 rounded-full text-[11px] font-mono font-semibold tabular-nums ${cls}`}
-    >
-      {score}
-    </span>
-  )
-}
-
-const estadoComparacionMap: Record<EstadoComparacion, { label: string; cls: string }> = {
-  en_analisis: { label: 'En análisis', cls: 'bg-amber-dim text-amber' },
-  listo: { label: 'Listo para revisar', cls: 'bg-terracotta-dim text-terracotta' },
-  entregado: { label: 'Entregado', cls: 'bg-surface-2 text-ink-3' },
-}
-
-const estadoPliegoMap: Record<EstadoPliego, { label: string; cls: string }> = {
-  en_analisis: { label: 'En análisis', cls: 'bg-amber-dim text-amber' },
-  pendiente: { label: 'Pendiente', cls: 'bg-surface-2 text-ink-3' },
-  listo: { label: 'Listo', cls: 'bg-ochre-dim text-ochre' },
-}
-
-function StatusPill({ label, cls }: { label: string; cls: string }) {
-  return (
-    <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap ${cls}`}>
-      {label}
-    </span>
-  )
-}
-
 function EmpresaAvatar({ nombre }: { nombre: string }) {
   const initials = nombre
     .split(' ')
@@ -135,9 +69,17 @@ function EmpresaAvatar({ nombre }: { nombre: string }) {
     .join('')
     .toUpperCase()
   return (
-    <div className="w-10 h-10 rounded-full bg-terracotta-dim flex items-center justify-center shrink-0 [&_span]:text-terracotta">
-      <span className="text-[13px] font-semibold text-terracotta select-none">{initials}</span>
+    <div className="w-9 h-9 rounded-full bg-terracotta-dim flex items-center justify-center shrink-0">
+      <span className="text-[12px] font-semibold text-terracotta select-none">{initials}</span>
     </div>
+  )
+}
+
+function StatusPill({ label, cls }: { label: string; cls: string }) {
+  return (
+    <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap ${cls}`}>
+      {label}
+    </span>
   )
 }
 
@@ -152,7 +94,6 @@ function SkeletonLine({ className }: { className?: string }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-7">
-      {/* Stats skeleton */}
       <div className="grid grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="rounded-[16px] border border-border-subtle bg-surface p-5 space-y-2">
@@ -161,19 +102,17 @@ function LoadingSkeleton() {
           </div>
         ))}
       </div>
-      {/* List skeleton */}
       <div className="grid grid-cols-[1fr_260px] gap-7">
         <div className="space-y-0">
           <SkeletonLine className="w-36 mb-5" />
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="flex items-center gap-3 py-4 border-b border-border-subtle">
-              <div className="w-10 h-10 rounded-full bg-surface-2 animate-pulse shrink-0" />
+              <div className="w-9 h-9 rounded-full bg-surface-2 animate-pulse shrink-0" />
               <div className="flex-1 space-y-1.5">
                 <SkeletonLine className="w-40" />
                 <SkeletonLine className="w-56" />
               </div>
               <SkeletonLine className="w-24 h-6 rounded-full" />
-              <SkeletonLine className="w-16" />
             </div>
           ))}
         </div>
@@ -202,6 +141,10 @@ export default function DashboardPage() {
   const { data: session, isPending } = authClient.useSession()
   const router = useRouter()
 
+  const [empresas, setEmpresas] = useState<EmpresaListItem[]>([])
+  const [pliegos, setPliegos] = useState<PliegoListItem[]>([])
+  const [isDataLoading, setIsDataLoading] = useState(true)
+
   useEffect(() => {
     if (!isPending && !session) {
       router.push('/login')
@@ -210,7 +153,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (session?.user) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/abogados/sync`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/abogados/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -223,13 +166,32 @@ export default function DashboardPage() {
     }
   }, [session])
 
-  const isEmpty = comparaciones.length === 0 && pliegosEnCola.length === 0
+  useEffect(() => {
+    if (!session) return
+    setIsDataLoading(true)
+    Promise.all([api.empresas.list(), api.pliegos.list()])
+      .then(([e, p]) => {
+        setEmpresas(e)
+        setPliegos(p)
+      })
+      .catch(console.error)
+      .finally(() => setIsDataLoading(false))
+  }, [session])
+
+  const totalComparaciones = pliegos.filter((p) => p.estado === 'listo').length
+  const statsConfig = [
+    { label: 'Empresas', value: empresas.length, href: '/dashboard/empresas' },
+    { label: 'Pliegos', value: pliegos.length, href: '/dashboard/pliegos' },
+    { label: 'Analizados', value: totalComparaciones, href: '/dashboard/pliegos' },
+  ]
+
+  const isEmpty = empresas.length === 0 && pliegos.length === 0
+  const recentPliegos = pliegos.slice(0, 8)
+  const queuePliegos = pliegos.filter((p) => p.estado !== 'listo').slice(0, 5)
 
   return (
     <>
-      {/* ---------------------------------------------------------------- */}
       {/* Topbar */}
-      {/* ---------------------------------------------------------------- */}
       <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <h1 className="text-[15px] font-semibold text-ink tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
@@ -250,22 +212,20 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ---------------------------------------------------------------- */}
       {/* Content */}
-      {/* ---------------------------------------------------------------- */}
       <div className="flex-1 px-8 py-7 overflow-auto">
-        {isPending ? (
+        {isPending || isDataLoading ? (
           <LoadingSkeleton />
         ) : (
           <div className="space-y-7">
 
-            {/* Stats row — always visible */}
+            {/* Stats row */}
             <div className="grid grid-cols-3 gap-4">
               {statsConfig.map((stat) => (
                 <Link
-                  key={stat.href}
+                  key={stat.href + stat.label}
                   href={stat.href}
-                  className="rounded-[16px] border border-border-subtle bg-surface p-5 hover:bg-surface-2 transition-colors duration-150 group"
+                  className="rounded-[16px] border border-border-subtle bg-surface p-5 hover:bg-surface-2 transition-colors duration-150"
                 >
                   <p className="text-[32px] font-bold text-ochre font-mono tabular-nums leading-none">
                     {stat.value}
@@ -276,9 +236,8 @@ export default function DashboardPage() {
             </div>
 
             {isEmpty ? (
-              /* Two-column empty state — teaches the workflow */
+              /* Onboarding empty state */
               <div className="grid grid-cols-2 gap-4">
-                {/* Column 1: Empresas */}
                 <div className="rounded-[16px] border border-border-subtle p-7 flex flex-col">
                   <p className="text-[11px] font-medium text-ink-3 mb-3">Paso 1</p>
                   <h3 className="text-[15px] font-semibold text-ink mb-3 text-balance">
@@ -291,15 +250,13 @@ export default function DashboardPage() {
                   <div className="mt-6">
                     <Link
                       href="/dashboard/empresas/nueva"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-[13px] font-medium border border-border text-ink-2 hover:text-ink hover:border-border transition-colors duration-150"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-[13px] font-medium border border-border text-ink-2 hover:text-ink transition-colors duration-150"
                     >
                       Agregar empresa
                       <IconArrow />
                     </Link>
                   </div>
                 </div>
-
-                {/* Column 2: Pliegos */}
                 <div className="rounded-[16px] border border-border-subtle p-7 flex flex-col">
                   <p className="text-[11px] font-medium text-ink-3 mb-3">Paso 2</p>
                   <h3 className="text-[15px] font-semibold text-ink mb-3 text-balance">
@@ -324,48 +281,47 @@ export default function DashboardPage() {
               /* Data layout */
               <div className="grid grid-cols-[1fr_260px] gap-7 items-start">
 
-                {/* Left: Comparaciones recientes */}
+                {/* Left: Pliegos recientes */}
                 <section>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-[15px] font-semibold text-ink">Comparaciones recientes</h2>
+                    <h2 className="text-[15px] font-semibold text-ink">Pliegos recientes</h2>
                     <Link
-                      href="/dashboard/comparaciones"
+                      href="/dashboard/pliegos"
                       className="text-[12px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
                     >
-                      Ver todas
+                      Ver todos
                     </Link>
                   </div>
-                  <div>
-                    {comparaciones.map((c) => {
-                      const { label, cls } = estadoComparacionMap[c.estado]
-                      return (
-                        <div
-                          key={c.id}
-                          className="flex items-center gap-3 py-3.5 border-b border-border-subtle hover:bg-surface transition-colors duration-150 rounded-sm cursor-pointer -mx-2 px-2"
-                        >
-                          <EmpresaAvatar nombre={c.empresaNombre} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-ink truncate">
-                              {c.empresaNombre}
-                            </p>
-                            <p className="text-[13px] text-ink-2 truncate mt-0.5">
-                              {c.pliegoTitulo}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <ScoreBadge score={c.score} />
+                  {recentPliegos.length === 0 ? (
+                    <p className="text-[13px] text-ink-3 py-4">Sin pliegos aún.</p>
+                  ) : (
+                    <div>
+                      {recentPliegos.map((p) => {
+                        const { label, cls } = estadoPliegoMap[p.estado]
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/dashboard/pliegos/${p.id}`}
+                            className="flex items-center gap-3 py-3.5 border-b border-border-subtle hover:bg-surface transition-colors duration-150 rounded-sm -mx-2 px-2"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-ochre-dim flex items-center justify-center shrink-0 [&_svg]:text-ochre">
+                              <IconFileDoc />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-medium text-ink truncate">{p.nombre}</p>
+                              <p className="text-[12px] text-ink-3 font-mono tabular-nums mt-0.5">
+                                {formatDate(p.created_at)}
+                              </p>
+                            </div>
                             <StatusPill label={label} cls={cls} />
-                            <span className="text-[12px] text-ink-3 font-mono tabular-nums w-14 text-right">
-                              {c.fecha}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
                 </section>
 
-                {/* Right: Pliegos en cola */}
+                {/* Right: Cola de pliegos pendientes */}
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-[15px] font-semibold text-ink">En cola</h2>
@@ -376,38 +332,38 @@ export default function DashboardPage() {
                       Ver todos
                     </Link>
                   </div>
-                  <div>
-                    {pliegosEnCola.length === 0 ? (
-                      <p className="text-[13px] text-ink-3 py-4">Sin pliegos en cola.</p>
-                    ) : (
-                      pliegosEnCola.map((p) => {
+                  {queuePliegos.length === 0 ? (
+                    <p className="text-[13px] text-ink-3 py-4">Sin pliegos pendientes.</p>
+                  ) : (
+                    <div>
+                      {queuePliegos.map((p) => {
                         const { label, cls } = estadoPliegoMap[p.estado]
                         return (
-                          <div
+                          <Link
                             key={p.id}
-                            className="flex items-center gap-3 py-3.5 border-b border-border-subtle hover:bg-surface transition-colors duration-150 rounded-sm cursor-pointer -mx-2 px-2"
+                            href={`/dashboard/pliegos/${p.id}`}
+                            className="flex items-center gap-3 py-3.5 border-b border-border-subtle hover:bg-surface transition-colors duration-150 rounded-sm -mx-2 px-2"
                           >
-                            <div className="w-8 h-8 rounded-full bg-ochre-dim flex items-center justify-center shrink-0 [&_svg]:text-ochre">
-                              <IconFileDoc />
-                            </div>
+                            <EmpresaAvatar nombre={p.nombre} />
                             <div className="flex-1 min-w-0">
                               <p className="text-[13px] font-medium text-ink line-clamp-2 leading-snug">
-                                {p.titulo}
+                                {p.nombre}
                               </p>
                               <p className="text-[12px] text-ink-3 font-mono tabular-nums mt-0.5">
-                                {p.fecha}
+                                {formatDate(p.created_at)}
                               </p>
                             </div>
                             <StatusPill label={label} cls={cls} />
-                          </div>
+                          </Link>
                         )
-                      })
-                    )}
-                  </div>
+                      })}
+                    </div>
+                  )}
                 </section>
 
               </div>
             )}
+
           </div>
         )}
       </div>
