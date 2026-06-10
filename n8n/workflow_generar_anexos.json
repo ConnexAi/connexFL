@@ -1,0 +1,168 @@
+{
+  "name": "Connex - Generar Anexos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generar-anexos",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a1b2c3d4-2222-4789-abcd-ef1234567890",
+      "name": "Webhook generar-anexos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 380],
+      "webhookId": "b8c9d0e1-2222-4456-8abc-567890123467"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Webhook generar-anexos').item.json.body;\nconst plantillas = data.plantillasBase64 || [];\nconst empresa = data.empresa || {};\nconst pliego = data.pliego || {};\n\n// Extraer contexto procesado de la empresa\nconst contexto = typeof empresa.contexto_procesado === 'string'\n  ? JSON.parse(empresa.contexto_procesado)\n  : (empresa.contexto_procesado || {});\n\n// Extraer analisis del pliego\nconst analisis = typeof pliego.analisis === 'string'\n  ? JSON.parse(pliego.analisis)\n  : (pliego.analisis || {});\n\nreturn [{\n  json: {\n    anexoId: data.anexoId,\n    pliegoId: data.pliegoId,\n    empresaId: data.empresaId,\n    abogadoId: data.abogadoId,\n    plantillas,\n    empresaData: {\n      nombre: empresa.nombre || '',\n      nit: empresa.nit || '',\n      sector: empresa.sector || '',\n      contexto,\n    },\n    pliegoData: {\n      nombre: pliego.nombre || '',\n      secop_id: pliego.secop_id || '',\n      analisis,\n    }\n  }\n}];"
+      },
+      "id": "b2c3d4e5-2222-4890-bcde-f12345678901",
+      "name": "Code - Preparar datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code - Preparar datos').item.json;\nconst plantillas = data.plantillas;\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). ' +\n'Tu tarea es leer plantillas de anexos de un proceso de contratacion y llenarlas con los datos ' +\n'reales de la empresa proponente y del proceso. ' +\n'Las plantillas tienen campos entre corchetes como [Nombre del representante legal], ' +\n'[NOMBRE DE LA ENTIDAD], [Numero del proceso], [Ciudad], etc. ' +\n'Debes reemplazar TODOS los campos entre corchetes con la informacion real disponible. ' +\n'Si un dato no esta disponible, indica \"Por completar\" en ese campo. ' +\n'Para cada plantilla devuelve el texto completo con todos los campos reemplazados. ' +\n'Devuelve UNICAMENTE un JSON valido con esta estructura: ' +\n'{\"anexos\":[{\"nombre_original\":\"string\",\"contenido_llenado\":\"string\",\"campos_reemplazados\":[\"string\"],\"campos_pendientes\":[\"string\"]}]}';\n\nconst empresaInfo = 'DATOS DE LA EMPRESA:\\n' +\n'Nombre/Razon social: ' + data.empresaData.nombre + '\\n' +\n'NIT: ' + data.empresaData.nit + '\\n' +\n'Sector: ' + data.empresaData.sector + '\\n' +\n'Perfil: ' + JSON.stringify(data.empresaData.contexto) + '\\n\\n';\n\nconst pliegoInfo = 'DATOS DEL PROCESO:\\n' +\n'Entidad: ' + (data.pliegoData.analisis?.entidad || data.pliegoData.nombre) + '\\n' +\n'Numero proceso: ' + (data.pliegoData.secop_id || 'Por confirmar') + '\\n' +\n'Objeto: ' + (data.pliegoData.analisis?.objeto || data.pliegoData.nombre) + '\\n' +\n'Municipio: ' + (data.pliegoData.analisis?.municipio || 'Por confirmar') + '\\n\\n';\n\nconst content = [];\n\ncontent.push({\n  type: 'text',\n  text: empresaInfo + pliegoInfo +\n    'A continuacion se adjuntan ' + plantillas.length + ' plantilla(s) de anexos para llenar. ' +\n    'Lee cada una cuidadosamente e identifica todos los campos entre corchetes para reemplazar.'\n});\n\nfor (const plantilla of plantillas) {\n  if (plantilla.mediaType === 'application/pdf') {\n    content.push({\n      type: 'document',\n      source: {\n        type: 'base64',\n        media_type: 'application/pdf',\n        data: plantilla.base64\n      },\n      title: plantilla.nombre\n    });\n  } else {\n    content.push({\n      type: 'text',\n      text: 'PLANTILLA: ' + plantilla.nombre + '\\n[Archivo Word/Excel - analizar campos entre corchetes y llenarlos con los datos proporcionados]'\n    });\n  }\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content }]\n};\n\nreturn [{\n  json: {\n    ...data,\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
+      },
+      "id": "c3d4e5f6-2222-4901-cdef-012345678912",
+      "name": "Code - Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "REEMPLAZAR_CON_ANTHROPIC_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "id": "d4e5f6a7-2222-4012-defa-123456789023",
+      "name": "Claude API - Generar anexos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [960, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Claude API - Generar anexos').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet anexos = [];\nif (response.content && response.content[0] && response.content[0].text) {\n  let texto = response.content[0].text.trim()\n    .replace(/```json/g, '').replace(/```/g, '').trim();\n  try {\n    const parsed = JSON.parse(texto);\n    anexos = parsed.anexos || [];\n  } catch(e) {\n    anexos = [{\n      nombre_original: 'resultado.txt',\n      contenido_llenado: texto,\n      campos_reemplazados: [],\n      campos_pendientes: []\n    }];\n  }\n}\n\nreturn [{\n  json: {\n    pliegoId: buildData.pliegoId,\n    empresaId: buildData.empresaId,\n    anexos: JSON.stringify(anexos),\n    totalAnexos: anexos.length\n  }\n}];"
+      },
+      "id": "e5f6a7b8-2222-4123-efab-234567890134",
+      "name": "Code - Extract Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 380]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE comparaciones\nSET anexos_generados = '{{ $json.anexos.replace(/'/g, \"''\") }}'::jsonb,\n    estado_anexos = 'listo',\n    updated_at = NOW()\nWHERE pliego_id = '{{ $json.pliegoId }}'\nAND empresa_id = '{{ $json.empresaId }}'",
+        "options": {}
+      },
+      "id": "f6a7b8c9-2222-4234-fabc-345678901245",
+      "name": "Postgres - Guardar anexos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1440, 380],
+      "credentials": {
+        "postgres": {
+          "id": "REEMPLAZAR_CON_ID_CREDENCIAL_POSTGRES",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook generar-anexos": {
+      "main": [
+        [
+          {
+            "node": "Code - Preparar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Preparar datos": {
+      "main": [
+        [
+          {
+            "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build Claude Request": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Generar anexos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Generar anexos": {
+      "main": [
+        [
+          {
+            "node": "Code - Extract Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extract Response": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Guardar anexos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "a7b8c9d0-2222-4345-abcd-456789012356",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "tags": [],
+  "pinData": {}
+}
