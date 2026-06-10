@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, vector } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core'
 import { abogados } from './abogados'
 
 export const pliegos = pgTable('pliegos', {
@@ -8,10 +8,11 @@ export const pliegos = pgTable('pliegos', {
   secopId:       text('secop_id'),
   textoExtraido: text('texto_extraido'),
   resumen:       jsonb('resumen'),
-  embedding:     vector('embedding', { dimensions: 1536 }),
+  analisis:      jsonb('analisis'),
   archivosPath:  text('archivos_path').array(),
   estado:        text('estado').default('pendiente').notNull(),
   createdAt:     timestamp('created_at').defaultNow().notNull(),
+  updatedAt:     timestamp('updated_at').defaultNow(),
 })
 
 export type Pliego = typeof pliegos.$inferSelect
