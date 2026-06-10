@@ -12,7 +12,7 @@
       "name": "Webhook pliego-analisis",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [240, 380],
       "webhookId": "b2c3d4e5-1111-4789-8abc-def012345678"
     },
     {
@@ -25,7 +25,7 @@
       "name": "Postgres - Obtener pliego",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [460, 300],
+      "position": [460, 380],
       "credentials": {
         "postgres": {
           "id": "REEMPLAZAR_CON_ID_CREDENCIAL_POSTGRES",
@@ -43,7 +43,7 @@
       "name": "Postgres - Obtener empresas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [460, 460],
+      "position": [700, 380],
       "credentials": {
         "postgres": {
           "id": "REEMPLAZAR_CON_ID_CREDENCIAL_POSTGRES",
@@ -53,13 +53,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhookData = $('Webhook pliego-analisis').item.json.body;\nconst pliego = $('Postgres - Obtener pliego').item.json;\nconst empresasItems = $('Postgres - Obtener empresas').all();\nconst documentosBase64 = webhookData.documentosBase64 || [];\n\nconst empresas = empresasItems.map(item => item.json);\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). Tu tarea tiene dos partes. PARTE 1: Analiza el pliego de condiciones adjunto y extrae la informacion clave. PARTE 2: Para cada empresa de la lista, calcula un score de compatibilidad del 0 al 100 basado en los requisitos del pliego vs el perfil de la empresa. Devuelve UNICAMENTE un JSON valido con esta estructura exacta sin texto adicional sin markdown: {\"analisis_pliego\":{\"resumen\":\"string\",\"requisitos_habilitantes\":[\"string\"],\"criterios_ponderacion\":[{\"criterio\":\"string\",\"peso\":0}],\"fechas_clave\":[{\"evento\":\"string\",\"fecha\":\"string\"}],\"inconsistencias\":[\"string\"]},\"comparaciones\":[{\"empresa_id\":\"string\",\"score\":0,\"justificacion\":\"string\",\"fortalezas_relevantes\":[\"string\"],\"riesgos\":[\"string\"]}]}';\n\nconst empresasTexto = empresas.map(e => {\n  const perfil = e.contexto_procesado ? JSON.stringify(e.contexto_procesado) : 'Sin perfil procesado';\n  return 'Empresa ID: ' + e.id + '\\nNombre: ' + e.nombre + '\\nNIT: ' + e.nit + '\\nSector: ' + (e.sector || 'No especificado') + '\\nPerfil: ' + perfil;\n}).join('\\n\\n---\\n\\n');\n\nconst introText = 'Analiza este pliego del SECOP II y las empresas candidatas.\\n\\nPliego: ' + pliego.nombre + (pliego.secop_id ? ' (SECOP: ' + pliego.secop_id + ')' : '') + '\\n\\nEMPRESAS CANDIDATAS:\\n\\n' + (empresas.length > 0 ? empresasTexto : 'No hay empresas con perfil listo.') + '\\n\\nA continuacion se adjunta el pliego en PDF.';\n\nconst contentBlocks = [{ type: 'text', text: introText }];\n\nfor (const doc of documentosBase64) {\n  contentBlocks.push({\n    type: 'document',\n    source: {\n      type: 'base64',\n      media_type: doc.mediaType,\n      data: doc.base64\n    },\n    title: doc.nombre\n  });\n}\n\nif (documentosBase64.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Nota: No se adjuntaron archivos PDF del pliego.' });\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 4096,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{\n  json: {\n    pliegoId: webhookData.pliegoId,\n    empresasIds: empresas.map(e => e.id),\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
+        "jsCode": "const webhookData = $('Webhook pliego-analisis').item.json.body;\nconst pliego = $('Postgres - Obtener pliego').item.json;\nconst empresas = $('Postgres - Obtener empresas').all().map(e => e.json);\nconst documentosBase64 = webhookData.documentosBase64 || [];\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). Tu tarea tiene dos partes. PARTE 1: Analiza el pliego de condiciones adjunto y extrae la informacion clave. PARTE 2: Para cada empresa de la lista, calcula un score de compatibilidad del 0 al 100 basado en los requisitos del pliego vs el perfil de la empresa. Devuelve UNICAMENTE un JSON valido con esta estructura exacta sin texto adicional sin markdown: {\"analisis_pliego\":{\"resumen\":\"string\",\"requisitos_habilitantes\":[\"string\"],\"criterios_ponderacion\":[{\"criterio\":\"string\",\"peso\":0}],\"fechas_clave\":[{\"evento\":\"string\",\"fecha\":\"string\"}],\"inconsistencias\":[\"string\"]},\"comparaciones\":[{\"empresa_id\":\"string\",\"score\":0,\"justificacion\":\"string\",\"fortalezas_relevantes\":[\"string\"],\"riesgos\":[\"string\"]}]}';\n\nconst empresasTexto = empresas.map(e => {\n  const perfil = e.contexto_procesado ? JSON.stringify(e.contexto_procesado) : 'Sin perfil procesado';\n  return 'Empresa ID: ' + e.id + '\\nNombre: ' + e.nombre + '\\nNIT: ' + e.nit + '\\nSector: ' + (e.sector || 'No especificado') + '\\nPerfil: ' + perfil;\n}).join('\\n\\n---\\n\\n');\n\nconst introText = 'Analiza este pliego del SECOP II y las empresas candidatas.\\n\\nPliego: ' + pliego.nombre + (pliego.secop_id ? ' (SECOP: ' + pliego.secop_id + ')' : '') + '\\n\\nEMPRESAS CANDIDATAS:\\n\\n' + (empresas.length > 0 ? empresasTexto : 'No hay empresas con perfil listo.') + '\\n\\nA continuacion se adjunta el pliego en PDF.';\n\nconst contentBlocks = [{ type: 'text', text: introText }];\n\nfor (const doc of documentosBase64) {\n  contentBlocks.push({\n    type: 'document',\n    source: {\n      type: 'base64',\n      media_type: doc.mediaType,\n      data: doc.base64\n    },\n    title: doc.nombre\n  });\n}\n\nif (documentosBase64.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Nota: No se adjuntaron archivos PDF del pliego.' });\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 4096,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{\n  json: {\n    pliegoId: webhookData.pliegoId,\n    empresasIds: empresas.map(e => e.id),\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
       },
       "id": "e5f6a7b8-1111-4012-defa-123456789023",
       "name": "Code - Build Claude Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 380]
+      "position": [940, 380]
     },
     {
       "parameters": {
@@ -92,7 +92,7 @@
       "name": "Claude API - Analizar pliego",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [940, 380]
+      "position": [1180, 380]
     },
     {
       "parameters": {
@@ -102,7 +102,7 @@
       "name": "Code - Extract respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1180, 380]
+      "position": [1420, 380]
     },
     {
       "parameters": {
@@ -112,7 +112,7 @@
       "name": "Code - Preparar comparaciones",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1420, 380]
+      "position": [1660, 380]
     },
     {
       "parameters": {
@@ -124,7 +124,7 @@
       "name": "Postgres - Guardar resultados",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1660, 380],
+      "position": [1900, 380],
       "credentials": {
         "postgres": {
           "id": "REEMPLAZAR_CON_ID_CREDENCIAL_POSTGRES",
@@ -141,11 +141,6 @@
             "node": "Postgres - Obtener pliego",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Postgres - Obtener empresas",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -154,7 +149,7 @@
       "main": [
         [
           {
-            "node": "Code - Build Claude Request",
+            "node": "Postgres - Obtener empresas",
             "type": "main",
             "index": 0
           }
