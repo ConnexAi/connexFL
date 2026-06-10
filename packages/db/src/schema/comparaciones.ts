@@ -13,6 +13,8 @@ export const comparaciones = pgTable('comparaciones', {
   riesgos:              jsonb('riesgos'),
   anexos:               jsonb('anexos').array(),
   driveUrl:             text('drive_url'),
+  estadoAnexos:         text('estado_anexos').default('pendiente'),
+  anexosGenerados:      jsonb('anexos_generados'),
   createdAt:            timestamp('created_at').defaultNow().notNull(),
   updatedAt:            timestamp('updated_at').defaultNow(),
 })

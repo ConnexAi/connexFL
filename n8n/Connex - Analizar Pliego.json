@@ -1,0 +1,252 @@
+{
+  "name": "Connex - Analizar Pliego",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pliego-analisis",
+        "options": {}
+      },
+      "id": "4350eba0-182a-4074-8922-f3373b741f50",
+      "name": "Webhook pliego-analisis",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "b2c3d4e5-1111-4789-8abc-def012345678"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nombre, secop_id, abogado_id FROM pliegos WHERE id = '{{ $('Webhook pliego-analisis').item.json.body.pliegoId }}'",
+        "options": {}
+      },
+      "id": "7b8f63de-61a7-4f64-ae88-a1855f671395",
+      "name": "Postgres - Obtener pliego",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nombre, nit, sector, contexto_procesado FROM empresas WHERE abogado_id = '{{ $('Webhook pliego-analisis').item.json.body.abogadoId }}' AND estado = 'listo'",
+        "options": {}
+      },
+      "id": "04a5eb81-b3b8-49ec-b192-6811bf448f64",
+      "name": "Postgres - Obtener empresas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        464,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Webhook pliego-analisis').item.json.body;\nconst pliego = $('Postgres - Obtener pliego').item.json;\nconst empresas = $('Postgres - Obtener empresas').all().map(e => e.json);\nconst documentosBase64 = webhookData.documentosBase64 || [];\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). Tu tarea tiene dos partes. PARTE 1: Analiza el pliego de condiciones adjunto y extrae la informacion clave. PARTE 2: Para cada empresa de la lista, calcula un score de compatibilidad del 0 al 100 basado en los requisitos del pliego vs el perfil de la empresa. Devuelve UNICAMENTE un JSON valido con esta estructura exacta sin texto adicional sin markdown: {\"analisis_pliego\":{\"resumen\":\"string\",\"requisitos_habilitantes\":[\"string\"],\"criterios_ponderacion\":[{\"criterio\":\"string\",\"peso\":0}],\"fechas_clave\":[{\"evento\":\"string\",\"fecha\":\"string\"}],\"inconsistencias\":[\"string\"]},\"comparaciones\":[{\"empresa_id\":\"string\",\"score\":0,\"justificacion\":\"string\",\"fortalezas_relevantes\":[\"string\"],\"riesgos\":[\"string\"]}]}';\n\nconst empresasTexto = empresas.map(e => {\n  const perfil = e.contexto_procesado ? JSON.stringify(e.contexto_procesado) : 'Sin perfil procesado';\n  return 'Empresa ID: ' + e.id + '\\nNombre: ' + e.nombre + '\\nNIT: ' + e.nit + '\\nSector: ' + (e.sector || 'No especificado') + '\\nPerfil: ' + perfil;\n}).join('\\n\\n---\\n\\n');\n\nconst introText = 'Analiza este pliego del SECOP II y las empresas candidatas.\\n\\nPliego: ' + pliego.nombre + (pliego.secop_id ? ' (SECOP: ' + pliego.secop_id + ')' : '') + '\\n\\nEMPRESAS CANDIDATAS:\\n\\n' + (empresas.length > 0 ? empresasTexto : 'No hay empresas con perfil listo.') + '\\n\\nA continuacion se adjunta el pliego en PDF.';\n\nconst contentBlocks = [{ type: 'text', text: introText }];\n\nfor (const doc of documentosBase64) {\n  contentBlocks.push({\n    type: 'document',\n    source: {\n      type: 'base64',\n      media_type: doc.mediaType,\n      data: doc.base64\n    },\n    title: doc.nombre\n  });\n}\n\nif (documentosBase64.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Nota: No se adjuntaron archivos PDF del pliego.' });\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 4096,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{\n  json: {\n    pliegoId: webhookData.pliegoId,\n    empresasIds: empresas.map(e => e.id),\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
+      },
+      "id": "af454f6d-2896-4e8b-b12c-ecffa1f72559",
+      "name": "Code - Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "REMOVED_ANTHROPIC_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "id": "fd34490f-a8a6-4ac0-9373-e6166bee0d19",
+      "name": "Claude API - Analizar pliego",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Claude API - Analizar pliego').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet rawText = '';\nif (response.content && response.content[0] && response.content[0].text) {\n  rawText = response.content[0].text.trim();\n  rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(rawText);\n} catch(e) {\n  parsed = { error: 'respuesta_no_valida', raw: rawText.substring(0, 500) };\n}\n\nconst analisisPliego = parsed.analisis_pliego || parsed;\nconst comparaciones = Array.isArray(parsed.comparaciones) ? parsed.comparaciones : [];\n\nreturn [{\n  json: {\n    pliegoId: buildData.pliegoId,\n    empresasIds: buildData.empresasIds,\n    analisisPliego: JSON.stringify(analisisPliego),\n    comparaciones\n  }\n}];"
+      },
+      "id": "731621c0-59fa-4b85-8da1-aad2d29d81f4",
+      "name": "Code - Extract respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code - Extract respuesta').item.json;\nconst comparaciones = data.comparaciones;\nconst pliegoId = data.pliegoId;\n\nconst inserts = comparaciones.map(comp => ({\n  json: {\n    pliegoId,\n    empresaId: comp.empresa_id,\n    score: Math.min(100, Math.max(0, Math.round(comp.score))),\n    justificacion: comp.justificacion || '',\n    fortalezas: JSON.stringify(comp.fortalezas_relevantes || []),\n    riesgos: JSON.stringify(comp.riesgos || [])\n  }\n}));\n\nif (inserts.length === 0) {\n  return [{ json: { pliegoId, analisisPliego: data.analisisPliego, sinComparaciones: true } }];\n}\n\nreturn inserts.map(i => ({ json: { ...i.json, analisisPliego: data.analisisPliego } }));"
+      },
+      "id": "3fa0c54d-d4e1-4e83-b990-e556244d0273",
+      "name": "Code - Preparar comparaciones",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upsert_comparacion AS (\n  INSERT INTO comparaciones (id, pliego_id, empresa_id, score, justificacion, fortalezas_relevantes, riesgos, created_at)\n  VALUES (gen_random_uuid(), '{{ $json.pliegoId }}', '{{ $json.empresaId }}', {{ $json.score }}, '{{ $json.justificacion.replace(/'/g, \"''\") }}', '{{ $json.fortalezas }}'::jsonb, '{{ $json.riesgos }}'::jsonb, NOW())\n  ON CONFLICT (pliego_id, empresa_id) DO UPDATE SET score = EXCLUDED.score, justificacion = EXCLUDED.justificacion, fortalezas_relevantes = EXCLUDED.fortalezas_relevantes, riesgos = EXCLUDED.riesgos\n  RETURNING id\n)\nUPDATE pliegos SET analisis = '{{ $json.analisisPliego.replace(/'/g, \"''\") }}'::jsonb, estado = 'listo', updated_at = NOW() WHERE id = '{{ $json.pliegoId }}'",
+        "options": {}
+      },
+      "id": "972f15d3-9bbd-4db1-91d8-110f98665495",
+      "name": "Postgres - Guardar resultados",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1664,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook pliego-analisis": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Obtener pliego",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Obtener pliego": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Obtener empresas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Obtener empresas": {
+      "main": [
+        [
+          {
+            "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build Claude Request": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Analizar pliego",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Analizar pliego": {
+      "main": [
+        [
+          {
+            "node": "Code - Extract respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extract respuesta": {
+      "main": [
+        [
+          {
+            "node": "Code - Preparar comparaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Preparar comparaciones": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Guardar resultados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ed7f1f24-a9c8-4de0-87d7-8194c5f9302b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c"
+  },
+  "nodeGroups": [],
+  "id": "jWVq0mDf8Gu3hp37",
+  "tags": []
+}

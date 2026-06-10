@@ -1,0 +1,196 @@
+{
+  "name": "Connex - Procesar Empresa",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "empresa-context",
+        "options": {}
+      },
+      "id": "5742cdaa-32e2-429b-8770-64ff5995a4b7",
+      "name": "Webhook empresa-context",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "f1e2d3c4-b5a6-4789-8abc-def012345678"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nombre, nit, sector, contexto_raw FROM empresas WHERE id = '{{ $('Webhook empresa-context').item.json.body.empresaId }}'",
+        "options": {}
+      },
+      "id": "09e1eca7-80a9-4cba-b6fe-937e63c81f77",
+      "name": "Postgres - Obtener empresa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const empresa = $('Postgres - Obtener empresa').item.json;\nconst webhookData = $('Webhook empresa-context').item.json.body;\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). Tu tarea es analizar el contexto de una empresa y extraer toda la informacion relevante para determinar en que licitaciones puede participar y ganar. Documentos clave por orden de importancia: 1. CUADRO DE EXPERIENCIA es el mas importante, define contratos similares ejecutados y determina que licitaciones puede ganar la empresa. 2. RUP (Registro Unico de Proponentes) contiene indicadores financieros oficiales y reemplaza los estados financieros. 3. Certificados de existencia y representacion legal de Camara de Comercio para vigencia juridica. 4. Certificados SG-SST de ARL y Ministerio de Trabajo para capacidad tecnica en seguridad laboral. 5. Antecedentes de Contraloria, Procuraduria y Judiciales para habilitacion legal. Devuelve UNICAMENTE un JSON valido con esta estructura exacta sin texto adicional sin markdown sin explicaciones: {\"nombre_comercial\":\"string\",\"nit\":\"string\",\"sector_principal\":\"string\",\"sectores_secundarios\":[\"string\"],\"anos_experiencia\":0,\"contratos_ejecutados\":[{\"descripcion\":\"string\",\"valor_aproximado\":\"string\",\"entidad\":\"string\",\"ano\":\"string\"}],\"capacidad_tecnica\":\"string\",\"indicadores_financieros\":{\"descripcion\":\"string\",\"nivel\":\"alto|medio|bajo\"},\"habilitacion_legal\":\"habilitada|inhabilitada|sin_verificar\",\"fortalezas\":[\"string\"],\"debilidades\":[\"string\"],\"tipos_contrato_recomendados\":[\"string\"],\"valor_maximo_contrato_estimado\":\"string\",\"resumen_ejecutivo\":\"string\"}';\n\nconst userMessage = 'Analiza esta empresa para licitaciones del SECOP II:\\n\\nNombre: ' + empresa.nombre + '\\nNIT: ' + empresa.nit + '\\nSector declarado: ' + (empresa.sector || 'No especificado') + '\\n\\nContexto y documentos subidos:\\n' + (empresa.contexto_raw || 'Sin contexto adicional');\n\nconst requestBody = {\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 2048,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: userMessage }]\n};\n\nreturn [{\n  json: {\n    empresaId: webhookData.empresaId,\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
+      },
+      "id": "1789e0fa-ac32-44e9-aed4-a6d0f32b6f1e",
+      "name": "Code - Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "REMOVED_ANTHROPIC_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "id": "c529ad04-ccb4-40e7-836b-e7ad60502c45",
+      "name": "Claude API - Analizar empresa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Claude API - Analizar empresa').item.json;\nconst empresaId = $('Code - Build Claude Request').item.json.empresaId;\n\nlet contextoTexto = '';\nif (response.content && response.content[0] && response.content[0].text) {\n  contextoTexto = response.content[0].text.trim();\n  // Limpiar markdown si Claude lo agrega\n  contextoTexto = contextoTexto.replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\n// Validar que sea JSON valido\ntry {\n  JSON.parse(contextoTexto);\n} catch(e) {\n  contextoTexto = JSON.stringify({ error: 'respuesta_no_valida', raw: contextoTexto.substring(0, 500) });\n}\n\nreturn [{ json: { empresaId, contextoTexto } }];"
+      },
+      "id": "708f809e-94f3-4722-bcda-a0bf12638492",
+      "name": "Code - Extract Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE empresas SET contexto_procesado = '{{ $json.contextoTexto.replace(/'/g, \"''\") }}'::jsonb, estado = 'listo', updated_at = NOW() WHERE id = '{{ $json.empresaId }}'",
+        "options": {}
+      },
+      "id": "4630915c-1d66-4e09-8918-bf273faeb6b9",
+      "name": "Postgres - Actualizar empresa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook empresa-context": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Obtener empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Obtener empresa": {
+      "main": [
+        [
+          {
+            "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build Claude Request": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Analizar empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Analizar empresa": {
+      "main": [
+        [
+          {
+            "node": "Code - Extract Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extract Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Actualizar empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "86dfe406-01a2-4b66-b9b4-8ea315fab508",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c"
+  },
+  "nodeGroups": [],
+  "id": "RSXBc9ul6gsPNT57",
+  "tags": []
+}

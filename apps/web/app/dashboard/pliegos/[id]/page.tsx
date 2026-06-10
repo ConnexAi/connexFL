@@ -518,6 +518,18 @@ export default function PliegoDetailPage() {
                               {isExpanded ? 'Ocultar' : 'Justificación'}
                             </button>
                           )}
+                          {score >= 40 && (
+                            <Link
+                              href={`/dashboard/pliegos/${id}/anexos?empresaId=${c.empresa_id}`}
+                              className="flex items-center gap-1 text-[12px] font-medium text-terracotta hover:text-terracotta-hover whitespace-nowrap transition-colors duration-150 shrink-0"
+                            >
+                              Generar anexos
+                              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 8h10M9 4l4 4-4 4" />
+                              </svg>
+                            </Link>
+                          )}
                         </div>
                         {isExpanded && c.justificacion && (
                           <div className="pb-3.5 pl-8 pr-2">
