@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
-import type { EmpresaDetail, EstadoEmpresa } from '@/lib/types'
+import type { AnalisisEmpresa, EmpresaDetail, EstadoEmpresa } from '@/lib/types'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
@@ -190,6 +190,153 @@ function DocumentSlot({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Análisis helpers
+// ---------------------------------------------------------------------------
+
+function habBadge(h: AnalisisEmpresa['habilitacion_legal']): { label: string; cls: string } {
+  if (h === 'habilitada') return { label: 'Habilitada', cls: 'bg-ochre-dim text-ochre' }
+  if (h === 'inhabilitada') return { label: 'Inhabilitada', cls: 'bg-terracotta-dim text-terracotta' }
+  return { label: 'Sin verificar', cls: 'bg-surface-2 text-ink-3' }
+}
+
+function nivelBadge(n: 'alto' | 'medio' | 'bajo'): { label: string; cls: string } {
+  if (n === 'alto') return { label: 'Alto', cls: 'bg-ochre-dim text-ochre' }
+  if (n === 'medio') return { label: 'Medio', cls: 'bg-amber-dim text-amber' }
+  return { label: 'Bajo', cls: 'bg-terracotta-dim text-terracotta' }
+}
+
+function AnalisisSection({ analisis }: { analisis: AnalisisEmpresa }) {
+  return (
+    <div className="space-y-4">
+
+      {/* 1. Resumen ejecutivo */}
+      <section className="rounded-[16px] border border-border-subtle p-6">
+        <h3 className="text-[14px] font-semibold text-ink mb-3">Resumen ejecutivo</h3>
+        <p className="text-[13px] text-ink-2 leading-relaxed">{analisis.resumen_ejecutivo}</p>
+      </section>
+
+      {/* 2. Fortalezas y Debilidades */}
+      <div className="grid grid-cols-2 gap-4">
+        <section className="rounded-[16px] border border-border-subtle p-6">
+          <h3 className="text-[14px] font-semibold text-ink mb-3">Fortalezas</h3>
+          {analisis.fortalezas.length > 0 ? (
+            <ul className="space-y-2">
+              {analisis.fortalezas.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[13px] text-ink-2">
+                  <span className="text-ochre mt-0.5 leading-none shrink-0" aria-hidden="true">•</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13px] text-ink-3">Sin información.</p>
+          )}
+        </section>
+        <section className="rounded-[16px] border border-border-subtle p-6">
+          <h3 className="text-[14px] font-semibold text-ink mb-3">Debilidades</h3>
+          {analisis.debilidades.length > 0 ? (
+            <ul className="space-y-2">
+              {analisis.debilidades.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[13px] text-ink-2">
+                  <span className="text-terracotta mt-0.5 leading-none shrink-0" aria-hidden="true">•</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13px] text-ink-3">Sin información.</p>
+          )}
+        </section>
+      </div>
+
+      {/* 3. Tipos de contrato */}
+      {analisis.tipos_contrato_recomendados.length > 0 && (
+        <section className="rounded-[16px] border border-border-subtle p-6">
+          <h3 className="text-[14px] font-semibold text-ink mb-3">Tipos de contrato recomendados</h3>
+          <div className="flex flex-wrap gap-2">
+            {analisis.tipos_contrato_recomendados.map((tipo, i) => (
+              <span key={i} className="inline-flex items-center h-7 px-3 rounded-full bg-surface-2 border border-border-subtle text-[12px] text-ink-2">
+                {tipo}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 4. Métricas */}
+      <div className="grid grid-cols-3 gap-4">
+        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center">
+          <p className="text-[11px] font-medium text-ink-3 mb-1.5">Años de experiencia</p>
+          <p className="text-[32px] font-bold text-ochre font-mono tabular-nums leading-none">
+            {analisis.anos_experiencia}
+          </p>
+        </section>
+        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center gap-2">
+          <p className="text-[11px] font-medium text-ink-3">Habilitación legal</p>
+          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${habBadge(analisis.habilitacion_legal).cls}`}>
+            {habBadge(analisis.habilitacion_legal).label}
+          </span>
+        </section>
+        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center gap-2">
+          <p className="text-[11px] font-medium text-ink-3">Nivel financiero</p>
+          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${nivelBadge(analisis.indicadores_financieros.nivel).cls}`}>
+            {nivelBadge(analisis.indicadores_financieros.nivel).label}
+          </span>
+          {analisis.indicadores_financieros.descripcion && (
+            <p className="text-[11px] text-ink-3 leading-snug text-center max-w-[140px]">
+              {analisis.indicadores_financieros.descripcion}
+            </p>
+          )}
+        </section>
+      </div>
+
+      {/* 5. Contratos ejecutados */}
+      {analisis.contratos_ejecutados.length > 0 && (
+        <section className="rounded-[16px] border border-border-subtle p-6">
+          <h3 className="text-[14px] font-semibold text-ink mb-4">
+            Contratos ejecutados
+            <span className="ml-2 text-[12px] font-normal font-mono text-ink-3 tabular-nums">
+              {analisis.contratos_ejecutados.length}
+            </span>
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3 w-[42%]">Descripción</th>
+                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3">Entidad</th>
+                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3 whitespace-nowrap">Valor aprox.</th>
+                  <th className="text-left pb-2.5 text-[11px] font-medium text-ink-3">Año</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analisis.contratos_ejecutados.map((c, i) => (
+                  <tr key={i} className="border-b border-border-subtle last:border-0">
+                    <td className="py-2.5 pr-4 text-ink-2 align-top">{c.descripcion}</td>
+                    <td className="py-2.5 pr-4 text-ink-3 align-top">{c.entidad}</td>
+                    <td className="py-2.5 pr-4 text-ink-3 align-top font-mono tabular-nums whitespace-nowrap">{c.valor_aproximado}</td>
+                    <td className="py-2.5 text-ink-3 align-top font-mono tabular-nums">{c.ano}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* 6. Capacidad técnica */}
+      {analisis.capacidad_tecnica && (
+        <section className="rounded-[16px] border border-border-subtle p-6">
+          <h3 className="text-[14px] font-semibold text-ink mb-3">Capacidad técnica</h3>
+          <p className="text-[13px] text-ink-2 leading-relaxed">{analisis.capacidad_tecnica}</p>
+        </section>
+      )}
+
     </div>
   )
 }
@@ -484,12 +631,7 @@ export default function EmpresaDetailPage() {
 
           {/* Análisis */}
           {empresa.estado === 'listo' && empresa.contexto_procesado && (
-            <section className="rounded-[16px] border border-border-subtle p-6">
-              <h3 className="text-[14px] font-semibold text-ink mb-4">Análisis de contexto</h3>
-              <div className="text-[13px] text-ink-2 leading-relaxed whitespace-pre-wrap">
-                {empresa.contexto_procesado}
-              </div>
-            </section>
+            <AnalisisSection analisis={empresa.contexto_procesado} />
           )}
 
           {empresa.estado === 'pendiente' && (
