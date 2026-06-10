@@ -5,6 +5,7 @@ import { join } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { UPLOAD_DIR } from '../middleware/upload'
 import type { AppVariables } from '../types'
+import { prepareDocumentsForClaude } from '../services/pdf-extractor'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -84,11 +85,14 @@ empresasRouter.post('/', async (c) => {
       }
     }
 
-    // Combinar contexto: texto manual + nombres de archivos subidos
-    const contextoRaw = [
-      contextoTexto ?? '',
-      archivosPath.length > 0 ? `\nArchivos subidos: ${archivosPath.map(p => p.split(/[/\\]/).pop()).join(', ')}` : ''
-    ].join('\n').trim()
+    // Preparar documentos PDF en base64 para Claude
+    const documentos = prepareDocumentsForClaude(archivosPath)
+
+    // Contexto: texto manual + lista de documentos subidos
+    const contextoRaw = JSON.stringify({
+      descripcion: contextoTexto ?? '',
+      documentos: documentos.map(d => ({ nombre: d.nombre })),
+    })
 
     // Guardar empresa en PostgreSQL
     const empresa = await pool.query(
@@ -114,6 +118,7 @@ empresasRouter.post('/', async (c) => {
           abogadoId,
           archivosPath,
           contextoRaw,
+          documentosBase64: documentos,
         }),
       }).catch(err => console.error('Error disparando webhook n8n:', err))
     }
@@ -168,10 +173,15 @@ empresasRouter.post('/:id/archivos', async (c) => {
     }
 
     const allPaths = [...existingPaths, ...newPaths]
+    const documentos = prepareDocumentsForClaude(allPaths)
+    const contextoRaw = JSON.stringify({
+      descripcion: '',
+      documentos: documentos.map(d => ({ nombre: d.nombre })),
+    })
 
     await pool.query(
-      `UPDATE empresas SET archivos_path = $1, estado = 'pendiente' WHERE id = $2`,
-      [allPaths, empresaId]
+      `UPDATE empresas SET archivos_path = $1, contexto_raw = $2, estado = 'pendiente' WHERE id = $3`,
+      [allPaths, contextoRaw, empresaId]
     )
 
     const webhookUrl = process.env.N8N_WEBHOOK_URL
@@ -184,7 +194,13 @@ empresasRouter.post('/:id/archivos', async (c) => {
           'Content-Type': 'application/json',
           ...(webhookSecret ? { 'x-webhook-secret': webhookSecret } : {}),
         },
-        body: JSON.stringify({ empresaId, abogadoId, archivosPath: allPaths }),
+        body: JSON.stringify({
+          empresaId,
+          abogadoId,
+          archivosPath: allPaths,
+          contextoRaw,
+          documentosBase64: documentos,
+        }),
       }).catch(err => console.error('Error disparando webhook n8n:', err))
     }
 

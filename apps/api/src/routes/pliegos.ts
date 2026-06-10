@@ -5,6 +5,7 @@ import { join } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { UPLOAD_DIR } from '../middleware/upload'
 import type { AppVariables } from '../types'
+import { prepareDocumentsForClaude } from '../services/pdf-extractor'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -91,6 +92,8 @@ pliegosRouter.post('/', async (c) => {
       [pliegoId, abogadoId, nombre, secopId || null, archivosPath]
     )
 
+    const documentos = prepareDocumentsForClaude(archivosPath)
+
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET
 
@@ -101,7 +104,7 @@ pliegosRouter.post('/', async (c) => {
           'Content-Type': 'application/json',
           ...(webhookSecret ? { 'x-webhook-secret': webhookSecret } : {}),
         },
-        body: JSON.stringify({ pliegoId, abogadoId, archivosPath }),
+        body: JSON.stringify({ pliegoId, abogadoId, archivosPath, documentosBase64: documentos }),
       }).catch(err => console.error('Error disparando webhook n8n:', err))
     }
 
@@ -184,6 +187,8 @@ pliegosRouter.post('/:id/archivos', async (c) => {
       [allPaths, pliegoId]
     )
 
+    const documentos = prepareDocumentsForClaude(allPaths)
+
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET
 
@@ -194,7 +199,7 @@ pliegosRouter.post('/:id/archivos', async (c) => {
           'Content-Type': 'application/json',
           ...(webhookSecret ? { 'x-webhook-secret': webhookSecret } : {}),
         },
-        body: JSON.stringify({ pliegoId, abogadoId, archivosPath: allPaths }),
+        body: JSON.stringify({ pliegoId, abogadoId, archivosPath: allPaths, documentosBase64: documentos }),
       }).catch(err => console.error('Error disparando webhook n8n:', err))
     }
 
