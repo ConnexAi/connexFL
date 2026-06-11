@@ -13,8 +13,18 @@ function applyReplacementsToXml(
   docXml: string,
   reemplazos: Array<{ campo_original: string; valor_nuevo: string; encontrado: boolean }>
 ): string {
+  function limpiarCampo(campo: string): string {
+    return campo.replace(/\s+fila\s+\d+\s*$/i, '').trim()
+  }
+
   // PASO 1: reemplazo directo en el XML (campos no fragmentados entre runs)
   let resultado = docXml
+
+  const CAMPOS_TABLA = [
+    'objeto del contrato similar', 'entidad', 'valor $',
+    'dd/mm/aaaa', 'ejecutado / en ejecución', 'no. contrato',
+    'no. contrato / certificación',
+  ]
 
   for (const r of reemplazos) {
     if (!r.encontrado || !r.campo_original || !r.valor_nuevo) continue
@@ -23,11 +33,17 @@ function applyReplacementsToXml(
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-    const campoRegex = new RegExp(
-      r.campo_original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-      'gi'
+    const campoBusqueda = limpiarCampo(r.campo_original)
+    const escapado = campoBusqueda.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const esCampoUnico = !CAMPOS_TABLA.some(c =>
+      campoBusqueda.toLowerCase().includes(c)
     )
-    resultado = resultado.replace(campoRegex, valorEscapado)
+    if (esCampoUnico) {
+      resultado = resultado.replace(new RegExp(escapado, 'gi'), valorEscapado)
+    } else {
+      // campo de tabla: reemplazar solo la primera ocurrencia (cada fila tiene su propio reemplazo)
+      resultado = resultado.replace(new RegExp(escapado, 'i'), valorEscapado)
+    }
   }
 
   // PASO 2: campos fragmentados — operar párrafo por párrafo concatenando texto visible
@@ -48,14 +64,16 @@ function applyReplacementsToXml(
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
 
-      if (textoModificado.includes(r.campo_original)) {
-        textoModificado = textoModificado.split(r.campo_original).join(valorEscapado)
+      const campoBusqueda = limpiarCampo(r.campo_original)
+
+      if (textoModificado.includes(campoBusqueda)) {
+        textoModificado = textoModificado.split(campoBusqueda).join(valorEscapado)
         huboCambio = true
         continue
       }
 
       // Fuzzy: buscar el campo sin corchetes por si Word omitió los delimitadores
-      const campoSinCorchetes = r.campo_original.replace(/[\[\]]/g, '').trim()
+      const campoSinCorchetes = campoBusqueda.replace(/[\[\]]/g, '').trim()
       if (campoSinCorchetes.length > 3 && textoModificado.includes(campoSinCorchetes)) {
         textoModificado = textoModificado.split(campoSinCorchetes).join(valorEscapado)
         huboCambio = true
@@ -63,12 +81,12 @@ function applyReplacementsToXml(
       }
 
       // Case-insensitive: cubre variantes de capitalización
-      const campoLower = r.campo_original.toLowerCase()
+      const campoLower = campoBusqueda.toLowerCase()
       let idx = textoModificado.toLowerCase().indexOf(campoLower)
       while (idx !== -1) {
         textoModificado = textoModificado.substring(0, idx) +
           valorEscapado +
-          textoModificado.substring(idx + r.campo_original.length)
+          textoModificado.substring(idx + campoBusqueda.length)
         idx = textoModificado.toLowerCase().indexOf(campoLower)
         huboCambio = true
       }

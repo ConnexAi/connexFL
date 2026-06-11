@@ -1,0 +1,188 @@
+{
+  "name": "Connex - Generar Anexos",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generar-anexos",
+        "options": {}
+      },
+      "id": "b192c9ae-0ebd-49ec-bdc9-8f3ee8225434",
+      "name": "Webhook generar-anexos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "b8c9d0e1-2222-4456-8abc-567890123467"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Webhook generar-anexos').item.json.body;\nconst plantillas = data.plantillasBase64 || [];\nconst empresa = data.empresa || {};\nconst pliego = data.pliego || {};\n\n// Extraer contexto procesado de la empresa\nconst contexto = typeof empresa.contexto_procesado === 'string'\n  ? JSON.parse(empresa.contexto_procesado)\n  : (empresa.contexto_procesado || {});\n\n// Extraer analisis del pliego\nconst analisis = typeof pliego.analisis === 'string'\n  ? JSON.parse(pliego.analisis)\n  : (pliego.analisis || {});\n\nreturn [{\n  json: {\n    anexoId: data.anexoId,\n    pliegoId: data.pliegoId,\n    empresaId: data.empresaId,\n    abogadoId: data.abogadoId,\n    plantillas,\n    empresaData: {\n      nombre: empresa.nombre || '',\n      nit: empresa.nit || '',\n      sector: empresa.sector || '',\n      contexto,\n    },\n    pliegoData: {\n      nombre: pliego.nombre || '',\n      secop_id: pliego.secop_id || '',\n      analisis,\n    }\n  }\n}];"
+      },
+      "id": "92cdf7f8-8257-4264-8739-ca08394bc1c0",
+      "name": "Code - Preparar datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Code - Preparar datos').item.json;\nconst plantillas = data.plantillas;\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). ' +\n'Tu tarea es llenar campos de plantillas de licitacion con datos reales de la empresa. ' +\n'CRITICO: El campo_original en tu respuesta debe ser el texto EXACTO entre corchetes ' +\n'tal como aparece en el documento, incluyendo los corchetes. ' +\n'NO resumir, NO cambiar el texto del campo. Copiarlo exactamente como esta. ' +\n'Si no tienes el dato para ese campo, usar encontrado: false y dejar valor_nuevo vacio. ' +\n'campos_pendientes debe decir: \"El abogado debe completar: [descripcion breve del dato]\". ' +\n'Devuelve UNICAMENTE JSON valido: ' +\n'{\"plantillas\":[{\"nombre\":\"string\",\"reemplazos\":[{\"campo_original\":\"texto exacto con corchetes\",\"valor_nuevo\":\"string\",\"encontrado\":true}],\"campos_pendientes\":[\"El abogado debe completar: ...\"]}]}';\n\nconst empresaInfo = 'DATOS DE LA EMPRESA:\\n' +\n'Nombre/Razon social: ' + data.empresaData.nombre + '\\n' +\n'NIT: ' + data.empresaData.nit + '\\n' +\n'Sector: ' + data.empresaData.sector + '\\n' +\n'Perfil: ' + JSON.stringify(data.empresaData.contexto) + '\\n\\n';\n\nconst pliegoInfo = 'DATOS DEL PROCESO:\\n' +\n'Entidad: ' + (data.pliegoData.analisis?.entidad || data.pliegoData.nombre) + '\\n' +\n'Numero proceso: ' + (data.pliegoData.secop_id || 'Por confirmar') + '\\n' +\n'Objeto: ' + (data.pliegoData.analisis?.objeto || data.pliegoData.nombre) + '\\n' +\n'Municipio: ' + (data.pliegoData.analisis?.municipio || 'Roldanillo') + '\\n' +\n'Departamento: Valle del Cauca\\n' +\n'Ciudad y Departamento: ' + (data.pliegoData.analisis?.municipio || 'Roldanillo') + ', Valle del Cauca\\n\\n';\n\nconst descripcionPlantillas = data.plantillas.map(p => {\n  const nombreLimpio = p.nombre.replace(/^\\d+_/, '');\n  return 'PLANTILLA: ' + nombreLimpio;\n}).join('\\n');\n\nconst userMessage = empresaInfo + pliegoInfo +\n  'PLANTILLAS A LLENAR:\\n' + descripcionPlantillas + '\\n\\n' +\n  'Para cada plantilla identifica los campos entre corchetes ' +\n  'que tipicamente contienen estos formatos SECOP II ' +\n  'y llenalos con los datos disponibles.\\n\\n' +\n  'Campos tipicos en formatos SECOP II (usar nombre EXACTO como aparece en el doc):\\n' +\n  '- [NOMBRE DE LA ENTIDAD CONTRATANTE]\\n' +\n  '- [Número del Proceso de Contratación]\\n' +\n  '- [Número del proceso]\\n' +\n  '- [Objeto del contrato]\\n' +\n  '- [OBJETO DEL PROCESO]\\n' +\n  '- [Nombre del representante legal del proponente]\\n' +\n  '- [Nombre del proponente]\\n' +\n  '- [NIT]\\n' +\n  '- [Ciudad]\\n' +\n  '- [CIUDAD]\\n' +\n  '- [Ciudad, Departamento]\\n' +\n  '- [Dirección de la entidad]\\n' +\n  '- [Cédula del representante legal]\\n' +\n  '- [día] / [mes] / [año]\\n' +\n  '- [Nombre o razón social del proponente]\\n\\n' +\n  'Si no tienes el dato usar encontrado: false.';\n\nconst content = [];\n\ncontent.push({\n  type: 'text',\n  text: userMessage\n});\n\nfor (const plantilla of plantillas) {\n  if (plantilla.mediaType === 'application/pdf') {\n    content.push({\n      type: 'document',\n      source: {\n        type: 'base64',\n        media_type: 'application/pdf',\n        data: plantilla.base64\n      },\n      title: plantilla.nombre\n    });\n  } else {\n    content.push({\n      type: 'text',\n      text: 'PLANTILLA: ' + plantilla.nombre + '\\n[Archivo Word/Excel]'\n    });\n  }\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content }]\n};\n\nreturn [{\n  json: {\n    ...data,\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];\n"
+      },
+      "id": "d02d6112-9f38-483f-94f5-31e0a0cfd701",
+      "name": "Code - Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "REMOVED_ANTHROPIC_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "id": "b9147c01-0aad-4d45-b34b-22202b7d5c77",
+      "name": "Claude API - Generar anexos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Claude API - Generar anexos').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet plantillas = [];\nif (response.content && response.content[0] && response.content[0].text) {\n  let texto = response.content[0].text.trim()\n    .replace(/```json/g, '').replace(/```/g, '').trim();\n  try {\n    const parsed = JSON.parse(texto);\n    plantillas = parsed.plantillas || [];\n  } catch(e) {\n    plantillas = [];\n  }\n}\n\n// Combinar reemplazos con base64 original de cada plantilla\nconst plantillasConReemplazos = plantillas.map((p, i) => {\n  const original = buildData.plantillas[i] || {};\n  return {\n    nombre: p.nombre || original.nombre,\n    ruta_original: original.rutaEnDisco || '',\n    base64_original: original.base64 || '',\n    media_type: original.mediaType || '',\n    reemplazos: p.reemplazos || [],\n    campos_pendientes: p.campos_pendientes || []\n  };\n});\n\nreturn [{\n  json: {\n    pliegoId: buildData.pliegoId,\n    empresaId: buildData.empresaId,\n    anexos: JSON.stringify(plantillasConReemplazos)\n  }\n}];"
+      },
+      "id": "9b8597c7-044d-42a5-ac5f-200fc1e26935",
+      "name": "Code - Extract Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE comparaciones\nSET anexos_generados = '{{ $json.anexos.replace(/'/g, \"''\") }}'::jsonb,\n    estado_anexos = 'listo',\n    updated_at = NOW()\nWHERE pliego_id = '{{ $json.pliegoId }}'\nAND empresa_id = '{{ $json.empresaId }}'",
+        "options": {}
+      },
+      "id": "3eb3a3ec-e6cd-4f9d-80cf-25492fe8a2f6",
+      "name": "Postgres - Guardar anexos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook generar-anexos": {
+      "main": [
+        [
+          {
+            "node": "Code - Preparar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Preparar datos": {
+      "main": [
+        [
+          {
+            "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build Claude Request": {
+      "main": [
+        [
+          {
+            "node": "Claude API - Generar anexos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API - Generar anexos": {
+      "main": [
+        [
+          {
+            "node": "Code - Extract Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extract Response": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Guardar anexos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3463a39a-b706-4fa0-a2e9-b24d94ab20bb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c"
+  },
+  "nodeGroups": [],
+  "id": "AZt4t7x4qB4s05ms",
+  "tags": []
+}
