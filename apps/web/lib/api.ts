@@ -4,9 +4,17 @@ import type {
   PliegoListItem,
   PliegoDetail,
   ComparacionConEmpresa,
+  AnexosEstado,
 } from './types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+
+export class ApiUnauthorizedError extends Error {
+  constructor() {
+    super('UNAUTHORIZED')
+    this.name = 'ApiUnauthorizedError'
+  }
+}
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -17,6 +25,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   })
+  if (res.status === 401) throw new ApiUnauthorizedError()
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   return res.json() as Promise<T>
 }
@@ -38,5 +47,9 @@ export const api = {
   },
   abogados: {
     me: () => apiFetch<{ id: string; email: string; nombre: string }>('/api/abogados/me'),
+  },
+  anexos: {
+    get: (pliegoId: string, empresaId: string) =>
+      apiFetch<AnexosEstado>(`/api/anexos/${pliegoId}/${empresaId}`),
   },
 }

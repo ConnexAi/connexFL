@@ -143,6 +143,7 @@ export default function EmpresasPage() {
     setIsLoading(true)
     fetch(`${API}/api/empresas`, { credentials: 'include' })
       .then(async (res) => {
+        if (res.status === 401) { router.push('/login'); return }
         if (!res.ok) throw new Error(`${res.status}`)
         const data: EmpresaListItem[] = await res.json()
         setEmpresas(data)

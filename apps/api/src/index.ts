@@ -7,6 +7,7 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import { auth } from './lib/auth'
+console.log('Better Auth inicializado:', typeof auth.handler)
 import { authMiddleware } from './middleware/auth'
 import abogadosRouter from './routes/abogados'
 import empresasRouter from './routes/empresas'
@@ -23,8 +24,22 @@ app.use('*', cors({
   credentials: true,
 }))
 
-app.on(['GET', 'POST'], '/api/auth/**', (c) => {
-  return auth.handler(c.req.raw)
+app.get('/api/auth/test', (c) => c.json({
+  status: 'auth routes mounted',
+  baseURL: process.env.BETTER_AUTH_URL,
+  googleId: process.env.GOOGLE_CLIENT_ID?.slice(0, 20),
+}))
+
+app.all('/api/auth/*', async (c) => {
+  console.log('Auth handler called:', c.req.method, c.req.url)
+  try {
+    const response = await auth.handler(c.req.raw)
+    console.log('Auth handler response status:', response.status)
+    return response
+  } catch (error) {
+    console.error('Better Auth error:', error)
+    return c.json({ error: 'Auth error', details: String(error) }, 500)
+  }
 })
 
 app.route('/api/abogados', abogadosRouter)

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
+import { api, ApiUnauthorizedError } from '@/lib/api'
 import type { EmpresaListItem, PliegoListItem, EstadoPliego } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
@@ -144,6 +144,7 @@ export default function DashboardPage() {
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([])
   const [pliegos, setPliegos] = useState<PliegoListItem[]>([])
   const [isDataLoading, setIsDataLoading] = useState(true)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -169,14 +170,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!session) return
     setIsDataLoading(true)
+    setApiError(null)
     Promise.all([api.empresas.list(), api.pliegos.list()])
       .then(([e, p]) => {
         setEmpresas(e)
         setPliegos(p)
       })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        if (err instanceof ApiUnauthorizedError) {
+          router.push('/login')
+        } else {
+          setApiError('No se pudieron cargar los datos. Verifica que el servidor esté en línea e intenta de nuevo.')
+        }
+      })
       .finally(() => setIsDataLoading(false))
-  }, [session])
+  }, [session, router])
 
   const totalComparaciones = pliegos.filter((p) => p.estado === 'listo').length
   const statsConfig = [
@@ -216,6 +224,19 @@ export default function DashboardPage() {
       <div className="flex-1 px-8 py-7 overflow-auto">
         {isPending || isDataLoading ? (
           <LoadingSkeleton />
+        ) : apiError ? (
+          <div className="max-w-lg">
+            <div className="px-4 py-3.5 rounded-[12px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta leading-relaxed">
+              {apiError}
+            </div>
+            <button
+              type="button"
+              onClick={() => { setApiError(null); setIsDataLoading(true) }}
+              className="mt-3 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150"
+            >
+              Reintentar
+            </button>
+          </div>
         ) : (
           <div className="space-y-7">
 

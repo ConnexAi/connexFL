@@ -92,3 +92,23 @@ export interface ComparacionConEmpresa {
   sector: string | null
   created_at: string
 }
+
+export interface AnexoReemplazo {
+  campo_original: string
+  valor_nuevo: string
+  encontrado: boolean
+}
+
+export interface AnexoGenerado {
+  nombre: string
+  ruta_original: string
+  base64_original: string
+  media_type: string
+  reemplazos: AnexoReemplazo[]
+  campos_pendientes: string[]
+}
+
+export interface AnexosEstado {
+  estado_anexos: string | null
+  anexos_generados: AnexoGenerado[] | null
+}

@@ -12,7 +12,10 @@
       "name": "Webhook generar-anexos",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 380],
+      "position": [
+        240,
+        380
+      ],
       "webhookId": "b8c9d0e1-2222-4456-8abc-567890123467"
     },
     {
@@ -23,17 +26,23 @@
       "name": "Code - Preparar datos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 380]
+      "position": [
+        480,
+        380
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const data = $('Code - Preparar datos').item.json;\nconst plantillas = data.plantillas;\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). ' +\n'Tu tarea es leer plantillas de anexos de un proceso de contratacion y llenarlas con los datos ' +\n'reales de la empresa proponente y del proceso. ' +\n'Las plantillas tienen campos entre corchetes como [Nombre del representante legal], ' +\n'[NOMBRE DE LA ENTIDAD], [Numero del proceso], [Ciudad], etc. ' +\n'Debes reemplazar TODOS los campos entre corchetes con la informacion real disponible. ' +\n'Si un dato no esta disponible, indica \"Por completar\" en ese campo. ' +\n'Para cada plantilla devuelve el texto completo con todos los campos reemplazados. ' +\n'Devuelve UNICAMENTE un JSON valido con esta estructura: ' +\n'{\"anexos\":[{\"nombre_original\":\"string\",\"contenido_llenado\":\"string\",\"campos_reemplazados\":[\"string\"],\"campos_pendientes\":[\"string\"]}]}';\n\nconst empresaInfo = 'DATOS DE LA EMPRESA:\\n' +\n'Nombre/Razon social: ' + data.empresaData.nombre + '\\n' +\n'NIT: ' + data.empresaData.nit + '\\n' +\n'Sector: ' + data.empresaData.sector + '\\n' +\n'Perfil: ' + JSON.stringify(data.empresaData.contexto) + '\\n\\n';\n\nconst pliegoInfo = 'DATOS DEL PROCESO:\\n' +\n'Entidad: ' + (data.pliegoData.analisis?.entidad || data.pliegoData.nombre) + '\\n' +\n'Numero proceso: ' + (data.pliegoData.secop_id || 'Por confirmar') + '\\n' +\n'Objeto: ' + (data.pliegoData.analisis?.objeto || data.pliegoData.nombre) + '\\n' +\n'Municipio: ' + (data.pliegoData.analisis?.municipio || 'Por confirmar') + '\\n\\n';\n\nconst content = [];\n\ncontent.push({\n  type: 'text',\n  text: empresaInfo + pliegoInfo +\n    'A continuacion se adjuntan ' + plantillas.length + ' plantilla(s) de anexos para llenar. ' +\n    'Lee cada una cuidadosamente e identifica todos los campos entre corchetes para reemplazar.'\n});\n\nfor (const plantilla of plantillas) {\n  if (plantilla.mediaType === 'application/pdf') {\n    content.push({\n      type: 'document',\n      source: {\n        type: 'base64',\n        media_type: 'application/pdf',\n        data: plantilla.base64\n      },\n      title: plantilla.nombre\n    });\n  } else {\n    content.push({\n      type: 'text',\n      text: 'PLANTILLA: ' + plantilla.nombre + '\\n[Archivo Word/Excel - analizar campos entre corchetes y llenarlos con los datos proporcionados]'\n    });\n  }\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content }]\n};\n\nreturn [{\n  json: {\n    ...data,\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];"
+        "jsCode": "const data = $('Code - Preparar datos').item.json;\nconst plantillas = data.plantillas;\n\nconst systemPrompt = 'Eres un asistente juridico experto en contratacion publica colombiana (SECOP II). ' +\n'Tu tarea es llenar campos de plantillas de licitacion con datos reales de la empresa. ' +\n'CRITICO: El campo_original en tu respuesta debe ser el texto EXACTO entre corchetes ' +\n'tal como aparece en el documento, incluyendo los corchetes. ' +\n'NO resumir, NO cambiar el texto del campo. Copiarlo exactamente como esta. ' +\n'Si no tienes el dato para ese campo, usar encontrado: false y dejar valor_nuevo vacio. ' +\n'campos_pendientes debe decir: \"El abogado debe completar: [descripcion breve del dato]\". ' +\n'Devuelve UNICAMENTE JSON valido: ' +\n'{\"plantillas\":[{\"nombre\":\"string\",\"reemplazos\":[{\"campo_original\":\"texto exacto con corchetes\",\"valor_nuevo\":\"string\",\"encontrado\":true}],\"campos_pendientes\":[\"El abogado debe completar: ...\"]}]}';\n\nconst empresaInfo = 'DATOS DE LA EMPRESA:\\n' +\n'Nombre/Razon social: ' + data.empresaData.nombre + '\\n' +\n'NIT: ' + data.empresaData.nit + '\\n' +\n'Sector: ' + data.empresaData.sector + '\\n' +\n'Perfil: ' + JSON.stringify(data.empresaData.contexto) + '\\n\\n';\n\nconst pliegoInfo = 'DATOS DEL PROCESO:\\n' +\n'Entidad: ' + (data.pliegoData.analisis?.entidad || data.pliegoData.nombre) + '\\n' +\n'Numero proceso: ' + (data.pliegoData.secop_id || 'Por confirmar') + '\\n' +\n'Objeto: ' + (data.pliegoData.analisis?.objeto || data.pliegoData.nombre) + '\\n' +\n'Municipio: ' + (data.pliegoData.analisis?.municipio || 'Roldanillo') + '\\n' +\n'Departamento: Valle del Cauca\\n' +\n'Ciudad y Departamento: ' + (data.pliegoData.analisis?.municipio || 'Roldanillo') + ', Valle del Cauca\\n\\n';\n\nconst descripcionPlantillas = data.plantillas.map(p => {\n  const nombreLimpio = p.nombre.replace(/^\\d+_/, '');\n  return 'PLANTILLA: ' + nombreLimpio;\n}).join('\\n');\n\nconst userMessage = empresaInfo + pliegoInfo +\n  'PLANTILLAS A LLENAR:\\n' + descripcionPlantillas + '\\n\\n' +\n  'Para cada plantilla identifica los campos entre corchetes ' +\n  'que tipicamente contienen estos formatos SECOP II ' +\n  'y llenalos con los datos disponibles.\\n\\n' +\n  'Campos tipicos en formatos SECOP II (usar nombre EXACTO como aparece en el doc):\\n' +\n  '- [NOMBRE DE LA ENTIDAD CONTRATANTE]\\n' +\n  '- [Número del Proceso de Contratación]\\n' +\n  '- [Número del proceso]\\n' +\n  '- [Objeto del contrato]\\n' +\n  '- [OBJETO DEL PROCESO]\\n' +\n  '- [Nombre del representante legal del proponente]\\n' +\n  '- [Nombre del proponente]\\n' +\n  '- [NIT]\\n' +\n  '- [Ciudad]\\n' +\n  '- [CIUDAD]\\n' +\n  '- [Ciudad, Departamento]\\n' +\n  '- [Dirección de la entidad]\\n' +\n  '- [Cédula del representante legal]\\n' +\n  '- [día] / [mes] / [año]\\n' +\n  '- [Nombre o razón social del proponente]\\n\\n' +\n  'Si no tienes el dato usar encontrado: false.';\n\nconst content = [];\n\ncontent.push({\n  type: 'text',\n  text: userMessage\n});\n\nfor (const plantilla of plantillas) {\n  if (plantilla.mediaType === 'application/pdf') {\n    content.push({\n      type: 'document',\n      source: {\n        type: 'base64',\n        media_type: 'application/pdf',\n        data: plantilla.base64\n      },\n      title: plantilla.nombre\n    });\n  } else {\n    content.push({\n      type: 'text',\n      text: 'PLANTILLA: ' + plantilla.nombre + '\\n[Archivo Word/Excel]'\n    });\n  }\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content }]\n};\n\nreturn [{\n  json: {\n    ...data,\n    claudeBody: JSON.stringify(requestBody)\n  }\n}];\n"
       },
       "id": "c3d4e5f6-2222-4901-cdef-012345678912",
       "name": "Code - Build Claude Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 380]
+      "position": [
+        720,
+        380
+      ]
     },
     {
       "parameters": {
@@ -66,17 +75,23 @@
       "name": "Claude API - Generar anexos",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [960, 380]
+      "position": [
+        960,
+        380
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const response = $('Claude API - Generar anexos').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet anexos = [];\nif (response.content && response.content[0] && response.content[0].text) {\n  let texto = response.content[0].text.trim()\n    .replace(/```json/g, '').replace(/```/g, '').trim();\n  try {\n    const parsed = JSON.parse(texto);\n    anexos = parsed.anexos || [];\n  } catch(e) {\n    anexos = [{\n      nombre_original: 'resultado.txt',\n      contenido_llenado: texto,\n      campos_reemplazados: [],\n      campos_pendientes: []\n    }];\n  }\n}\n\nreturn [{\n  json: {\n    pliegoId: buildData.pliegoId,\n    empresaId: buildData.empresaId,\n    anexos: JSON.stringify(anexos),\n    totalAnexos: anexos.length\n  }\n}];"
+        "jsCode": "const response = $('Claude API - Generar anexos').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet plantillas = [];\nif (response.content && response.content[0] && response.content[0].text) {\n  let texto = response.content[0].text.trim()\n    .replace(/```json/g, '').replace(/```/g, '').trim();\n  try {\n    const parsed = JSON.parse(texto);\n    plantillas = parsed.plantillas || [];\n  } catch(e) {\n    plantillas = [];\n  }\n}\n\n// Combinar reemplazos con base64 original de cada plantilla\nconst plantillasConReemplazos = plantillas.map((p, i) => {\n  const original = buildData.plantillas[i] || {};\n  return {\n    nombre: p.nombre || original.nombre,\n    ruta_original: original.rutaEnDisco || '',\n    base64_original: original.base64 || '',\n    media_type: original.mediaType || '',\n    reemplazos: p.reemplazos || [],\n    campos_pendientes: p.campos_pendientes || []\n  };\n});\n\nreturn [{\n  json: {\n    pliegoId: buildData.pliegoId,\n    empresaId: buildData.empresaId,\n    anexos: JSON.stringify(plantillasConReemplazos)\n  }\n}];"
       },
       "id": "e5f6a7b8-2222-4123-efab-234567890134",
       "name": "Code - Extract Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1200, 380]
+      "position": [
+        1200,
+        380
+      ]
     },
     {
       "parameters": {
@@ -88,7 +103,10 @@
       "name": "Postgres - Guardar anexos",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1440, 380],
+      "position": [
+        1440,
+        380
+      ],
       "credentials": {
         "postgres": {
           "id": "REEMPLAZAR_CON_ID_CREDENCIAL_POSTGRES",
