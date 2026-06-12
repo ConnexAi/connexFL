@@ -226,7 +226,7 @@ function AnexosContent() {
     async function load() {
       setIsLoading(true)
       try {
-        const [p, c] = await Promise.all([api.pliegos.get(id), api.comparaciones.list(id)])
+        const [p, c] = await Promise.all([api.pliegos.get(id), api.comparaciones.list({ pliegoId: id })])
         if (cancelled) return
         setPliego(p)
         setComparaciones(c)

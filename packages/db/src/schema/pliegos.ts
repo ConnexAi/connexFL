@@ -11,6 +11,8 @@ export const pliegos = pgTable('pliegos', {
   analisis:      jsonb('analisis'),
   archivosPath:  text('archivos_path').array(),
   estado:        text('estado').default('pendiente').notNull(),
+  licitacionId:  uuid('licitacion_id'),
+  faseId:        uuid('fase_id'),
   createdAt:     timestamp('created_at').defaultNow().notNull(),
   updatedAt:     timestamp('updated_at').defaultNow(),
 })

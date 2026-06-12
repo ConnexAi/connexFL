@@ -22,6 +22,20 @@
       "when": 1781129294750,
       "tag": "0002_eager_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781286956097,
+      "tag": "0003_fantastic_nebula",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781290729761,
+      "tag": "0004_strong_exiles",
+      "breakpoints": true
     }
   ]
 }

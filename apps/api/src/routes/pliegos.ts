@@ -85,11 +85,27 @@ pliegosRouter.post('/', async (c) => {
       }
     }
 
+    // Crear licitacion y fase asociada al pliego
+    const licitacionId = uuidv4()
+    const faseId = uuidv4()
+
+    await pool.query(
+      `INSERT INTO licitaciones (id, abogado_id, nombre, secop_id, estado)
+       VALUES ($1, $2, $3, $4, 'activa')`,
+      [licitacionId, abogadoId, nombre, secopId || null]
+    )
+
+    await pool.query(
+      `INSERT INTO licitacion_fases (id, licitacion_id, tipo_fase, version, documentos_path, estado)
+       VALUES ($1, $2, 'pliego_definitivo', 1, $3, 'pendiente')`,
+      [faseId, licitacionId, archivosPath]
+    )
+
     const pliego = await pool.query(
-      `INSERT INTO pliegos (id, abogado_id, nombre, secop_id, archivos_path, estado)
-       VALUES ($1, $2, $3, $4, $5, 'pendiente')
-       RETURNING id, nombre, secop_id, estado, archivos_path, created_at`,
-      [pliegoId, abogadoId, nombre, secopId || null, archivosPath]
+      `INSERT INTO pliegos (id, abogado_id, nombre, secop_id, archivos_path, estado, licitacion_id, fase_id)
+       VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $7)
+       RETURNING id, nombre, secop_id, estado, archivos_path, licitacion_id, fase_id, created_at`,
+      [pliegoId, abogadoId, nombre, secopId || null, archivosPath, licitacionId, faseId]
     )
 
     const documentos = prepareDocumentsForClaude(archivosPath)

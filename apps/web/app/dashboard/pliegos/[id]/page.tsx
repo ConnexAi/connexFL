@@ -235,7 +235,7 @@ export default function PliegoDetailPage() {
   useEffect(() => {
     if (!pliego || pliego.estado !== 'listo') return
     setComparLoading(true)
-    api.comparaciones.list(id)
+    api.comparaciones.list({ pliegoId: id })
       .then(setComparaciones)
       .catch(console.error)
       .finally(() => setComparLoading(false))

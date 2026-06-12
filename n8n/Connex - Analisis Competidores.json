@@ -1,0 +1,167 @@
+{
+  "name": "Connex - Analisis Competidores",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analisis-competidores",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook analisis-competidores",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "d1b2c3d4-0001-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.empresa_id, e.nombre AS empresa_nombre FROM comparaciones c JOIN pliegos p ON c.pliego_id = p.id JOIN empresas e ON c.empresa_id = e.id WHERE p.licitacion_id = '{{ $('Webhook analisis-competidores').item.json.body.licitacionId }}' AND c.ronda = 'definitivo' AND c.seleccionada = true",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Postgres - Obtener empresas seleccionadas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [240, 0],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT lf.analisis_claude FROM licitacion_fases lf WHERE lf.licitacion_id = '{{ $('Webhook analisis-competidores').item.json.body.licitacionId }}' AND lf.tipo_fase = 'pliego_definitivo' AND lf.estado = 'listo' ORDER BY lf.created_at DESC LIMIT 1",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Postgres - Obtener analisis pliego definitivo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [240, 200],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Webhook analisis-competidores').item.json.body;\nconst empresasRows = $('Postgres - Obtener empresas seleccionadas').all().map(r => r.json);\nconst faseDataRows = $('Postgres - Obtener analisis pliego definitivo').all();\nconst faseData = faseDataRows.length > 0 ? faseDataRows[0].json : {};\nconst documentosBase64 = webhookData.documentosBase64 || [];\n\nconst porEmpresa = faseData.analisis_claude?.por_empresa || {};\n\nconst empresasCtx = empresasRows.map(e => {\n  const analisisEmpresa = porEmpresa[e.empresa_id];\n  return 'Empresa ID: ' + e.empresa_id + ' | Nombre: ' + e.empresa_nombre + (analisisEmpresa ? ' | Veredicto previo: ' + (analisisEmpresa.veredicto_final || 'N/A') : '');\n}).join('\\n');\n\nconst systemPrompt = 'Eres un experto juridico en contratacion publica colombiana. Analiza el informe de evaluacion y las observaciones de los oferentes. Devuelve UNICAMENTE un JSON valido (sin markdown): {\"resumen_general\":\"string\",\"ranking_competidores\":[{\"nombre_proponente\":\"string\",\"puntaje_habilitante\":\"habilitado|no_habilitado\",\"puntaje_ponderacion\":0,\"observaciones_detectadas\":\"string\"}],\"por_empresa\":{\"<empresaId>\":{\"puntaje_ponderacion\":0,\"ranking\":0,\"oportunidades_observacion\":[{\"tipo\":\"puntaje_propio_subvalorado|puntaje_competidor_cuestionable\",\"descripcion\":\"string\",\"argumento\":\"string\"}],\"estrategia_texto\":\"string\"}}}';\n\nconst userText = 'LICITACION ID: ' + webhookData.licitacionId + '\\n\\nEMPRESAS PROPIAS INVOLUCRADAS:\\n' + (empresasCtx || 'Ninguna seleccionada') + '\\n\\nA continuacion el informe de evaluacion y observaciones de otros oferentes.';\n\nconst contentBlocks = [{ type: 'text', text: userText }];\nfor (const doc of documentosBase64) {\n  contentBlocks.push({\n    type: 'document',\n    source: { type: 'base64', media_type: doc.mediaType, data: doc.base64 },\n    title: doc.nombre\n  });\n}\nif (documentosBase64.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Sin documentos adjuntos.' });\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{ json: { faseId: webhookData.faseId, claudeBody: JSON.stringify(requestBody) } }];"
+      },
+      "id": "d1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Code - Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Claude API - Analisis competidores",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Claude API - Analisis competidores').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet rawText = '';\nif (response.content && response.content[0] && response.content[0].text) {\n  rawText = response.content[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\nlet parsed = null;\ntry { parsed = JSON.parse(rawText); }\ncatch(e) { parsed = { error: 'respuesta_no_valida', raw: rawText.substring(0, 500) }; }\n\n// Separar general y por_empresa para merge individual\nconst generalData = { resumen_general: parsed.resumen_general, ranking_competidores: parsed.ranking_competidores };\nconst porEmpresa = parsed.por_empresa || {};\n\nreturn [{ json: {\n  faseId: buildData.faseId,\n  generalData: JSON.stringify(generalData),\n  porEmpresa: JSON.stringify(porEmpresa)\n} }];"
+      },
+      "id": "d1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Code - Parsear respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE licitacion_fases SET analisis_claude = jsonb_set(jsonb_set(COALESCE(analisis_claude, '{}'::jsonb), '{general}', '{{ $json.generalData.replace(/'/g, \"''\") }}'::jsonb), '{por_empresa}', COALESCE(analisis_claude->'por_empresa', '{}'::jsonb) || '{{ $json.porEmpresa.replace(/'/g, \"''\") }}'::jsonb), estado = 'listo', updated_at = NOW() WHERE id = '{{ $json.faseId }}'",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0007-4000-8000-000000000007",
+      "name": "Postgres - Guardar resultado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1280, 0],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE licitacion_fases SET estado = 'error', updated_at = NOW() WHERE id = '{{ $('Code - Build Claude Request').item.json.faseId }}'",
+        "options": {}
+      },
+      "id": "d1b2c3d4-0008-4000-8000-000000000008",
+      "name": "Postgres - Marcar error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1040, 200],
+      "credentials": {
+        "postgres": {
+          "id": "ybgyfY5MFJBJf74R",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook analisis-competidores": {
+      "main": [
+        [
+          { "node": "Postgres - Obtener empresas seleccionadas", "type": "main", "index": 0 },
+          { "node": "Postgres - Obtener analisis pliego definitivo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Postgres - Obtener empresas seleccionadas": {
+      "main": [[{ "node": "Code - Build Claude Request", "type": "main", "index": 0 }]]
+    },
+    "Postgres - Obtener analisis pliego definitivo": {
+      "main": [[{ "node": "Code - Build Claude Request", "type": "main", "index": 1 }]]
+    },
+    "Code - Build Claude Request": {
+      "main": [[{ "node": "Claude API - Analisis competidores", "type": "main", "index": 0 }]]
+    },
+    "Claude API - Analisis competidores": {
+      "main": [[{ "node": "Code - Parsear respuesta", "type": "main", "index": 0 }]],
+      "error": [[{ "node": "Postgres - Marcar error", "type": "main", "index": 0 }]]
+    },
+    "Code - Parsear respuesta": {
+      "main": [[{ "node": "Postgres - Guardar resultado", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "analisis-competidores-v1",
+  "meta": { "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c" },
+  "id": "ConnexAnalisisCompetidores01",
+  "tags": []
+}

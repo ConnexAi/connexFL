@@ -68,7 +68,7 @@ function IconLogout() {
 const navItems = [
   { href: '/dashboard', label: 'Inicio', icon: <IconHome />, exact: true },
   { href: '/dashboard/empresas', label: 'Empresas', icon: <IconBuilding />, exact: false },
-  { href: '/dashboard/pliegos', label: 'Pliegos', icon: <IconFile />, exact: false },
+  { href: '/dashboard/pliegos', label: 'Licitaciones', icon: <IconFile />, exact: false },
   { href: '/dashboard/comparaciones', label: 'Comparaciones', icon: <IconBars />, exact: false },
 ]
 

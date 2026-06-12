@@ -5,6 +5,102 @@
 export type EstadoEmpresa = 'pendiente' | 'procesando' | 'listo' | 'error'
 export type EstadoPliego = 'pendiente' | 'analizando' | 'listo' | 'error'
 
+// ---------------------------------------------------------------------------
+// Licitaciones
+// ---------------------------------------------------------------------------
+
+export type TipoFase =
+  | 'prepliego'
+  | 'pliego_definitivo'
+  | 'anexos'
+  | 'evaluacion_observaciones'
+
+export type EstadoFase = 'pendiente' | 'procesando' | 'listo' | 'error'
+export type EstadoLicitacion = 'activa' | 'adjudicada' | 'archivada'
+
+// Estructura de analisis_claude en licitacion_fases
+export interface LicitacionAnalisisEmpresa {
+  veredicto_general?: 'cabe' | 'no_cabe' | 'cabe_con_observaciones'
+  veredicto_final?: 'va' | 'no_va' | 'va_con_riesgos'
+  resumen_ejecutivo?: string
+  requisitos?: {
+    categoria: 'juridico' | 'financiero' | 'tecnico' | 'experiencia'
+    requisito: string
+    estado: 'cumple' | 'no_cumple' | 'dudoso'
+    justificacion: string
+  }[]
+  observaciones_texto?: string
+  fortalezas?: string[]
+  debilidades?: string[]
+  recomendacion_anexos?: string
+  puntaje_ponderacion?: number
+  ranking?: number
+  oportunidades_observacion?: {
+    tipo: 'puntaje_propio_subvalorado' | 'puntaje_competidor_cuestionable'
+    descripcion: string
+    argumento: string
+  }[]
+  estrategia_texto?: string
+}
+
+export interface LicitacionAnalisisGeneral {
+  resumen_ejecutivo?: string
+  requisitos_habilitantes?: {
+    juridico?: string[]
+    financiero?: string[]
+    tecnico?: string[]
+    experiencia?: string[]
+  }
+  criterios_ponderacion?: { criterio: string; peso: number }[]
+  fechas_clave?: { fecha: string; evento: string }[]
+  cascaritas?: { descripcion: string; ubicacion: string }[]
+  empresas_candidatas?: { empresa_id: string; nombre_empresa: string; afinidad_resumen: string }[]
+  // evaluacion_observaciones
+  resumen_general?: string
+  ranking_competidores?: {
+    nombre_proponente: string
+    puntaje_habilitante: 'habilitado' | 'no_habilitado'
+    puntaje_ponderacion: number
+    observaciones_detectadas: string
+  }[]
+}
+
+export interface LicitacionAnalisis {
+  general?: LicitacionAnalisisGeneral
+  por_empresa?: Record<string, LicitacionAnalisisEmpresa>
+}
+
+export interface LicitacionFase {
+  id: string
+  licitacion_id: string
+  tipo_fase: TipoFase
+  version: number
+  fecha: string | null
+  documentos_path: string[] | null
+  texto_extraido: string | null
+  analisis_claude: LicitacionAnalisis | null
+  resumen_ejecutivo: string | null
+  estado: EstadoFase
+  created_at: string
+  updated_at: string | null
+}
+
+export interface LicitacionListItem {
+  id: string
+  nombre: string
+  secop_id: string | null
+  entidad_contratante: string | null
+  estado: EstadoLicitacion
+  ultima_fase_listo: TipoFase | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface LicitacionDetail extends LicitacionListItem {
+  fases: LicitacionFase[]
+  pliego_id: string | null
+}
+
 export interface EmpresaListItem {
   id: string
   nombre: string
@@ -90,6 +186,8 @@ export interface ComparacionConEmpresa {
   empresa_nombre: string
   nit: string
   sector: string | null
+  ronda: string
+  seleccionada: boolean
   created_at: string
 }
 

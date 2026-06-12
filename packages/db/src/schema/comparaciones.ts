@@ -1,4 +1,4 @@
-import { pgTable, uuid, real, jsonb, text, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, real, jsonb, text, boolean, timestamp } from 'drizzle-orm/pg-core'
 import { empresas } from './empresas'
 import { pliegos } from './pliegos'
 
@@ -15,6 +15,8 @@ export const comparaciones = pgTable('comparaciones', {
   driveUrl:             text('drive_url'),
   estadoAnexos:         text('estado_anexos').default('pendiente'),
   anexosGenerados:      jsonb('anexos_generados'),
+  ronda:                text('ronda').default('definitivo'),
+  seleccionada:         boolean('seleccionada').default(false),
   createdAt:            timestamp('created_at').defaultNow().notNull(),
   updatedAt:            timestamp('updated_at').defaultNow(),
 })

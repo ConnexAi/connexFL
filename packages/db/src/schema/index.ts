@@ -1,4 +1,6 @@
 export * from './abogados'
 export * from './empresas'
+export * from './licitaciones'
+export * from './licitacion-fases'
 export * from './pliegos'
 export * from './comparaciones'
