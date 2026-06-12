@@ -32,10 +32,14 @@ app.get('/api/auth/test', (c) => c.json({
 }))
 
 app.all('/api/auth/*', async (c) => {
-  console.log('Auth handler called:', c.req.method, c.req.url)
+  if (process.env.DEBUG_AUTH === 'true') {
+    console.debug('Auth handler called:', c.req.method, c.req.url)
+  }
   try {
     const response = await auth.handler(c.req.raw)
-    console.log('Auth handler response status:', response.status)
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.debug('Auth handler response status:', response.status)
+    }
     return response
   } catch (error) {
     console.error('Better Auth error:', error)
