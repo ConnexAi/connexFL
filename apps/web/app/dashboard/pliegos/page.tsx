@@ -5,153 +5,109 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import type { PliegoListItem, EstadoPliego } from '@/lib/types'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { Plus, FileText, ArrowRight, ChevronRight, Calendar } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 const estadoMap: Record<EstadoPliego, { label: string; cls: string }> = {
-  pendiente: { label: 'Pendiente', cls: 'bg-surface-2 text-ink-3' },
+  pendiente:  { label: 'Pendiente',  cls: 'bg-surface-2 text-ink-3' },
   analizando: { label: 'Analizando', cls: 'bg-amber-dim text-amber' },
-  listo: { label: 'Listo', cls: 'bg-ochre-dim text-ochre' },
-  error: { label: 'Error', cls: 'bg-terracotta-dim text-terracotta' },
+  listo:      { label: 'Listo',      cls: 'bg-success-dim text-success' },
+  error:      { label: 'Error',      cls: 'bg-terracotta-dim text-terracotta' },
 }
 
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-
-function IconPlus() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="8" y1="2.5" x2="8" y2="13.5" /><line x1="2.5" y1="8" x2="13.5" y2="8" />
-    </svg>
-  )
-}
-
-function IconChevron() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3.5 10 8l-4 4.5" />
-    </svg>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-4 py-4 border-b border-border-subtle px-1">
-      <div className="w-9 h-9 rounded-full bg-surface-2 animate-pulse shrink-0" />
-      <div className="flex-1 space-y-1.5">
-        <div className="h-3.5 bg-surface-2 rounded animate-pulse w-56" />
-        <div className="h-3 bg-surface-2 rounded animate-pulse w-32" />
-      </div>
-      <div className="h-6 bg-surface-2 rounded-full animate-pulse w-20" />
-      <div className="h-6 bg-surface-2 rounded animate-pulse w-9" />
-      <div className="h-3 bg-surface-2 rounded animate-pulse w-20 hidden md:block" />
-      <div className="w-4 h-4 bg-surface-2 rounded animate-pulse" />
-    </div>
-  )
-}
-
-function ScoreBadge({ score }: { score: number }) {
+function ScorePill({ score }: { score: number }) {
   const cls =
-    score >= 70
-      ? 'bg-ochre-dim text-ochre'
-      : score >= 40
-        ? 'bg-amber-dim text-amber'
-        : 'bg-terracotta-dim text-terracotta'
+    score >= 70 ? 'bg-success-dim text-success'
+    : score >= 40 ? 'bg-amber-dim text-amber'
+    : 'bg-terracotta-dim text-terracotta'
   return (
-    <span className={`inline-flex items-center justify-center h-6 min-w-[2.25rem] px-2 rounded-full text-[11px] font-mono font-semibold tabular-nums shrink-0 ${cls}`}>
+    <span className={`inline-flex items-center justify-center h-6 min-w-[2.5rem] px-2 rounded-full text-[11px] font-mono font-semibold tabular-nums ${cls}`}>
       {score}
     </span>
   )
 }
 
-function PliegoRow({ pliego }: { pliego: PliegoListItem }) {
+function SkeletonCard() {
+  return (
+    <div className="bg-surface rounded-xl border border-border p-6 space-y-4 animate-pulse shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-border shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-border rounded w-48" />
+          <div className="h-3 bg-border rounded w-32" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="h-5 bg-border rounded-full w-16" />
+        <div className="h-5 bg-border rounded-full w-20" />
+      </div>
+    </div>
+  )
+}
+
+function PliegoCard({ pliego }: { pliego: PliegoListItem }) {
   const { label, cls } = estadoMap[pliego.estado]
+
   return (
     <Link
       href={`/dashboard/pliegos/${pliego.id}`}
-      className="flex items-center gap-4 py-4 border-b border-border-subtle px-1 rounded-sm hover:bg-surface transition-colors duration-150 group -mx-1"
+      className="bg-surface rounded-xl border border-border p-6 hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] transition-all duration-200 group flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
     >
-      {/* Icon circle */}
-      <div className="w-9 h-9 rounded-full bg-ochre-dim flex items-center justify-center shrink-0 [&_svg]:text-ochre">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
-          <path d="M9.5 1.5V4.5h3" />
-          <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
-        </svg>
-      </div>
-
-      {/* Name + entidad */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-medium text-ink truncate">{pliego.nombre}</p>
-        <p className="text-[12px] text-ink-2 truncate mt-0.5">
-          {pliego.entidad ?? <span className="text-ink-3">Sin entidad</span>}
-          {pliego.fecha_limite && (
-            <> · <span className="text-ink-3">Límite {formatDate(pliego.fecha_limite)}</span></>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="w-10 h-10 rounded-lg bg-ochre-dim flex items-center justify-center shrink-0">
+          <FileText size={16} className="text-ochre" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold text-ink leading-snug line-clamp-2">{pliego.nombre}</p>
+          {pliego.entidad && (
+            <p className="text-[11px] text-ink-3 mt-1 truncate">{pliego.entidad}</p>
           )}
-        </p>
+        </div>
       </div>
 
-      {/* Estado */}
-      <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${cls}`}>
-        {label}
-      </span>
+      <div className="flex flex-wrap items-center gap-2 flex-1">
+        <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-medium whitespace-nowrap ${cls}`}>
+          {label}
+        </span>
+        {pliego.score_promedio != null && (
+          <ScorePill score={pliego.score_promedio} />
+        )}
+      </div>
 
-      {/* Score promedio */}
-      {pliego.score_promedio != null ? (
-        <ScoreBadge score={pliego.score_promedio} />
-      ) : (
-        <span className="w-9 text-center text-[11px] text-ink-3 shrink-0">—</span>
-      )}
-
-      {/* Fecha */}
-      <span className="hidden md:block w-24 text-[12px] text-ink-3 font-mono tabular-nums shrink-0 text-right">
-        {formatDate(pliego.created_at)}
-      </span>
-
-      {/* Chevron */}
-      <span className="text-ink-3 group-hover:text-ink-2 transition-colors duration-150 shrink-0">
-        <IconChevron />
-      </span>
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
+          {pliego.fecha_limite ? (
+            <>
+              <Calendar size={11} />
+              <span>Límite: {formatDate(pliego.fecha_limite)}</span>
+            </>
+          ) : (
+            <span className="font-mono">{formatDate(pliego.created_at)}</span>
+          )}
+        </div>
+        <span className="flex items-center gap-1 text-[12px] font-medium text-terracotta opacity-0 group-hover:opacity-100 transition-opacity">
+          Ver análisis
+          <ChevronRight size={12} />
+        </span>
+      </div>
     </Link>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default function PliegosPage() {
   const { data: session, isPending: sessionPending } = authClient.useSession()
   const router = useRouter()
-
   const [pliegos, setPliegos] = useState<PliegoListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!sessionPending && !session) {
-      router.push('/login')
-    }
+    if (!sessionPending && !session) router.push('/login')
   }, [session, sessionPending, router])
 
   useEffect(() => {
@@ -160,86 +116,68 @@ export default function PliegosPage() {
     fetch(`${API}/api/pliegos`, { credentials: 'include' })
       .then(async (res) => {
         if (!res.ok) throw new Error(`${res.status}`)
-        const data: PliegoListItem[] = await res.json()
-        setPliegos(data)
+        setPliegos(await res.json() as PliegoListItem[])
       })
-      .catch(() => setError('No se pudieron cargar los pliegos. Intenta de nuevo.'))
+      .catch(() => setError('No se pudieron cargar los pliegos.'))
       .finally(() => setIsLoading(false))
   }, [session])
 
-  if (sessionPending) {
-    return (
-      <>
-        <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <div className="h-4 w-20 bg-surface-2 rounded animate-pulse" />
-        </header>
-        <div className="px-8 py-7 space-y-0">
-          {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
-        </div>
-      </>
-    )
-  }
-
+  if (sessionPending) return null
   if (!session) return null
 
   return (
-    <>
-      {/* Topbar */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-        <h1 className="text-[15px] font-semibold text-ink tracking-tight">Pliegos</h1>
-        <Link
-          href="/dashboard/pliegos/nuevo"
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-        >
-          <IconPlus />
-          Subir pliego
-        </Link>
-      </header>
+    <div className="flex-1 overflow-auto">
+      <div className="max-w-[1280px] mx-auto px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-[22px] font-bold text-ink" style={{ letterSpacing: '-0.01em' }}>Pliegos</h1>
+            <p className="text-[14px] text-ink-2 mt-1">
+              {isLoading ? 'Cargando...' : `${pliegos.length} ${pliegos.length === 1 ? 'pliego cargado' : 'pliegos cargados'}`}
+            </p>
+          </div>
+          <Link
+            href="/dashboard/pliegos/nuevo"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors shadow-[0_1px_3px_rgba(232,89,60,0.3)]"
+          >
+            <Plus size={14} />
+            Subir pliego
+          </Link>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 px-8 py-7 overflow-auto">
         {error && (
-          <div className="mb-5 px-4 py-3 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
+          <div className="mb-6 px-4 py-3 rounded-xl bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="space-y-0">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
+            {Array.from({ length: 6 }, (_, i) => i).map((i) => <SkeletonCard key={i} />)}
           </div>
         ) : pliegos.length === 0 ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center max-w-xs">
-              <p className="text-[14px] font-semibold text-ink mb-2">Sin pliegos cargados</p>
-              <p className="text-[13px] text-ink-2 leading-relaxed mb-6 text-pretty">
-                Sube el pliego de condiciones de una licitación del SECOP&nbsp;II para que el sistema analice los requisitos.
-              </p>
-              <Link
-                href="/dashboard/pliegos/nuevo"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-              >
-                <IconPlus />
-                Subir primer pliego
-              </Link>
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-14 h-14 rounded-2xl bg-ochre-dim flex items-center justify-center mb-4">
+              <FileText size={24} className="text-ochre" />
             </div>
+            <p className="text-[16px] font-semibold text-ink mb-2">Sin pliegos cargados</p>
+            <p className="text-[13px] text-ink-2 text-center max-w-xs leading-relaxed mb-6">
+              Sube el pliego de una licitación del SECOP II para comenzar el análisis.
+            </p>
+            <Link
+              href="/dashboard/pliegos/nuevo"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+            >
+              <Plus size={14} />
+              Subir primer pliego
+              <ArrowRight size={14} />
+            </Link>
           </div>
         ) : (
-          <div>
-            <div className="flex items-center gap-4 pb-2.5 border-b border-border px-1">
-              <div className="w-9 shrink-0" aria-hidden="true" />
-              <span className="flex-1 text-[11px] font-medium text-ink-3">Pliego</span>
-              <span className="text-[11px] font-medium text-ink-3 w-20 shrink-0">Estado</span>
-              <span className="text-[11px] font-medium text-ink-3 w-9 text-center shrink-0">Score</span>
-              <span className="hidden md:block w-24 text-[11px] font-medium text-ink-3 shrink-0 text-right">Subido</span>
-              <div className="w-4 shrink-0" aria-hidden="true" />
-            </div>
-            <div>
-              {pliegos.map((p) => <PliegoRow key={p.id} pliego={p} />)}
-            </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
+            {pliegos.map((p) => <PliegoCard key={p.id} pliego={p} />)}
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }

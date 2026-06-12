@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { UPLOAD_DIR } from '../middleware/upload'
 import type { AppVariables } from '../types'
 import { prepareDocumentsForClaude } from '../services/pdf-extractor'
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle, TableRow, TableCell, WidthType, Table } from 'docx'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -112,6 +113,131 @@ pliegosRouter.post('/', async (c) => {
   } catch (error) {
     console.error('Error creando pliego:', error)
     return c.json({ error: 'Error al crear pliego' }, 500)
+  }
+})
+
+// GET /api/pliegos/:id/analisis-docx — descargar análisis como Word
+pliegosRouter.get('/:id/analisis-docx', async (c) => {
+  const user = c.get('user')
+  const pliegoId = c.req.param('id')
+
+  try {
+    const result = await pool.query(
+      `SELECT p.nombre, p.secop_id, p.entidad, p.analisis, p.estado
+       FROM pliegos p
+       INNER JOIN abogados a ON p.abogado_id = a.id
+       WHERE p.id = $1 AND a.email = $2`,
+      [pliegoId, user.email]
+    )
+
+    if (result.rows.length === 0) {
+      return c.json({ error: 'Pliego no encontrado' }, 404)
+    }
+
+    const pliego = result.rows[0]
+    const analisis = pliego.analisis
+
+    if (!analisis) {
+      return c.json({ error: 'El pliego aún no tiene análisis generado' }, 400)
+    }
+
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
+    const cellBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder }
+
+    const children: Paragraph[] = [
+      new Paragraph({
+        text: `Análisis de pliego: ${pliego.nombre}`,
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 200 },
+      }),
+    ]
+
+    if (pliego.entidad) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: `Entidad: ${pliego.entidad}`, bold: true })],
+        spacing: { after: 100 },
+      }))
+    }
+    if (pliego.secop_id) {
+      children.push(new Paragraph({ text: `ID SECOP II: ${pliego.secop_id}`, spacing: { after: 300 } }))
+    }
+
+    if (analisis.resumen) {
+      children.push(
+        new Paragraph({ text: 'Resumen', heading: HeadingLevel.HEADING_2, spacing: { after: 120 } }),
+        new Paragraph({ text: analisis.resumen, spacing: { after: 300 } }),
+      )
+    }
+
+    if (analisis.requisitos_habilitantes?.length) {
+      children.push(new Paragraph({ text: 'Requisitos habilitantes', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      for (const item of analisis.requisitos_habilitantes) {
+        children.push(new Paragraph({ text: `• ${item}`, spacing: { after: 80 } }))
+      }
+      children.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+    }
+
+    if (analisis.criterios_ponderacion?.length) {
+      children.push(new Paragraph({ text: 'Criterios de ponderación', heading: HeadingLevel.HEADING_2, spacing: { after: 200 } }))
+      const tableRows = [
+        new TableRow({
+          children: ['Criterio', 'Peso (%)'].map((h) =>
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+              borders: cellBorders,
+              width: { size: 50, type: WidthType.PERCENTAGE },
+            })
+          ),
+        }),
+        ...analisis.criterios_ponderacion.map((c: { criterio: string; peso: number }) =>
+          new TableRow({
+            children: [c.criterio, `${c.peso}%`].map((val) =>
+              new TableCell({
+                children: [new Paragraph({ text: val })],
+                borders: cellBorders,
+                width: { size: 50, type: WidthType.PERCENTAGE },
+              })
+            ),
+          })
+        ),
+      ]
+      children.push(new Paragraph({ children: [] }))
+    }
+
+    if (analisis.fechas_clave?.length) {
+      children.push(new Paragraph({ text: 'Fechas clave', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      for (const item of analisis.fechas_clave) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${item.evento}: `, bold: true }),
+            new TextRun({ text: item.fecha }),
+          ],
+          spacing: { after: 80 },
+        }))
+      }
+      children.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+    }
+
+    if (analisis.inconsistencias?.length) {
+      children.push(new Paragraph({ text: 'Inconsistencias detectadas', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      for (const item of analisis.inconsistencias) {
+        children.push(new Paragraph({ text: `⚠ ${item}`, spacing: { after: 80 } }))
+      }
+    }
+
+    const doc = new Document({ sections: [{ children }] })
+    const buffer = await Packer.toBuffer(doc)
+    const filename = `analisis-pliego-${pliego.nombre.replace(/\s+/g, '-').toLowerCase().slice(0, 40)}.docx`
+
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  } catch (error) {
+    console.error('Error generando docx pliego:', error)
+    return c.json({ error: 'Error al generar el documento' }, 500)
   }
 })
 
