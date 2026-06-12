@@ -6,11 +6,12 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
 import type { AnalisisEmpresa, EmpresaDetail, EstadoEmpresa } from '@/lib/types'
+import { ChevronLeft, FileText, X, Download } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 // ---------------------------------------------------------------------------
-// Document definitions — 10 documentos esenciales de Ximena
+// Document definitions
 // ---------------------------------------------------------------------------
 
 interface DocDef {
@@ -35,7 +36,7 @@ const ESSENTIAL_DOCS: DocDef[] = [
 const CUADRO_EXPERIENCIA: DocDef = {
   id: 'cuadro_experiencia',
   label: 'Cuadro de experiencia',
-  note: 'Este documento define qué licitaciones puede ganar la empresa',
+  note: 'Define qué licitaciones puede ganar la empresa',
   isImportant: true,
 }
 
@@ -47,11 +48,7 @@ const INITIAL_PENDING: Record<string, File | null> = Object.fromEntries(ALL_DOCS
 // ---------------------------------------------------------------------------
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 function basename(path: string): string {
@@ -59,43 +56,10 @@ function basename(path: string): string {
 }
 
 const estadoMap: Record<EstadoEmpresa, { label: string; cls: string }> = {
-  pendiente: { label: 'Pendiente', cls: 'bg-surface-2 text-ink-3' },
+  pendiente:  { label: 'Pendiente',  cls: 'bg-surface-2 text-ink-3' },
   procesando: { label: 'Procesando', cls: 'bg-amber-dim text-amber' },
-  listo: { label: 'Listo', cls: 'bg-ochre-dim text-ochre' },
-  error: { label: 'Error', cls: 'bg-terracotta-dim text-terracotta' },
-}
-
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-
-function IconBack() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 3.5 6 8l4 4.5" />
-    </svg>
-  )
-}
-
-function IconFile() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-      className="text-ink-3 shrink-0">
-      <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
-      <path d="M9.5 1.5V4.5h3" />
-    </svg>
-  )
-}
-
-function IconX() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-      <line x1="3" y1="3" x2="13" y2="13" /><line x1="13" y1="3" x2="3" y2="13" />
-    </svg>
-  )
+  listo:      { label: 'Listo',      cls: 'bg-success-dim text-success' },
+  error:      { label: 'Error',      cls: 'bg-terracotta-dim text-terracotta' },
 }
 
 // ---------------------------------------------------------------------------
@@ -113,12 +77,9 @@ function DocumentSlot({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-
-  function pick(f: File | undefined) {
-    if (f) onChange(f)
-  }
-
   const loaded = file !== null
+
+  function pick(f: File | undefined) { if (f) onChange(f) }
 
   return (
     <div
@@ -126,7 +87,7 @@ function DocumentSlot({
       tabIndex={0}
       aria-label={`Subir: ${doc.label}`}
       className={[
-        'rounded-[12px] border transition-colors duration-150 cursor-pointer select-none outline-none',
+        'rounded-lg border transition-colors duration-150 cursor-pointer select-none outline-none p-3',
         'focus-visible:ring-1 focus-visible:ring-terracotta',
         loaded
           ? 'border-ochre bg-ochre-dim'
@@ -134,7 +95,7 @@ function DocumentSlot({
             ? 'border-terracotta bg-terracotta-dim'
             : doc.isImportant
               ? 'border-ochre/40 bg-surface hover:border-ochre/70'
-              : 'border-border-subtle bg-surface hover:border-border',
+              : 'border-border bg-surface hover:border-terracotta/40',
       ].join(' ')}
       onClick={() => inputRef.current?.click()}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
@@ -151,223 +112,160 @@ function DocumentSlot({
         onChange={(e) => pick(e.target.files?.[0])}
         onClick={(e) => e.stopPropagation()}
       />
-
-      <div className="p-3.5 min-h-[82px] flex flex-col justify-between gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <p className={`text-[12px] font-medium leading-snug ${loaded ? 'text-ochre' : 'text-ink-2'}`}>
-            {doc.label}
-          </p>
-          <div className="shrink-0 mt-0.5">
-            {loaded ? (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChange(null) }}
-                className="text-ochre hover:opacity-60 transition-opacity duration-100"
-                aria-label="Quitar archivo"
-              >
-                <IconX />
-              </button>
-            ) : doc.isImportant ? (
-              <span className="inline-flex items-center h-4 px-2 rounded-full bg-ochre-dim text-ochre text-[10px] font-semibold whitespace-nowrap">
-                Más importante
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        <div>
-          {loaded ? (
-            <p className="text-[11px] text-ochre/70 truncate font-mono">{file.name}</p>
-          ) : (
-            <>
-              {doc.note && (
-                <p className="text-[11px] text-ink-3 leading-snug mb-1">{doc.note}</p>
-              )}
-              <p className="text-[11px] text-ink-3">
-                {isDragging ? 'Suelta aquí' : 'Arrastra o haz clic · PDF'}
-              </p>
-            </>
-          )}
-        </div>
+      <div className="flex items-start justify-between gap-2">
+        <p className={`text-[11px] font-medium leading-snug ${loaded ? 'text-ochre' : 'text-ink-2'}`}>
+          {doc.label}
+        </p>
+        {loaded ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onChange(null) }}
+            className="text-ochre hover:opacity-60 transition-opacity shrink-0"
+            aria-label="Quitar archivo"
+          >
+            <X size={12} />
+          </button>
+        ) : doc.isImportant ? (
+          <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-ochre-dim text-ochre text-[9px] font-semibold whitespace-nowrap shrink-0">
+            Clave
+          </span>
+        ) : null}
       </div>
+      <p className="text-[10px] text-ink-3 mt-1">
+        {loaded ? file.name : (doc.note ?? 'PDF · Arrastra o clic')}
+      </p>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Análisis helpers
+// Análisis badge helpers
 // ---------------------------------------------------------------------------
 
 function habBadge(h: AnalisisEmpresa['habilitacion_legal']): { label: string; cls: string } {
-  if (h === 'habilitada') return { label: 'Habilitada', cls: 'bg-ochre-dim text-ochre' }
+  if (h === 'habilitada') return { label: 'Habilitada', cls: 'bg-success-dim text-success' }
   if (h === 'inhabilitada') return { label: 'Inhabilitada', cls: 'bg-terracotta-dim text-terracotta' }
   return { label: 'Sin verificar', cls: 'bg-surface-2 text-ink-3' }
 }
 
 function nivelBadge(n: 'alto' | 'medio' | 'bajo'): { label: string; cls: string } {
-  if (n === 'alto') return { label: 'Alto', cls: 'bg-ochre-dim text-ochre' }
+  if (n === 'alto') return { label: 'Alto', cls: 'bg-success-dim text-success' }
   if (n === 'medio') return { label: 'Medio', cls: 'bg-amber-dim text-amber' }
   return { label: 'Bajo', cls: 'bg-terracotta-dim text-terracotta' }
 }
 
-function AnalisisSection({ analisis }: { analisis: AnalisisEmpresa }) {
+function AnalisisPanel({ analisis, empresaId }: { analisis: AnalisisEmpresa; empresaId: string }) {
+  const { label: habLabel, cls: habCls } = habBadge(analisis.habilitacion_legal)
+  const { label: nivLabel, cls: nivCls } = nivelBadge(analisis.indicadores_financieros.nivel)
+
   return (
-    <div className="space-y-4">
-
-      {/* 1. Resumen ejecutivo */}
-      <section className="rounded-[16px] border border-border-subtle p-6">
-        <h3 className="text-[14px] font-semibold text-ink mb-3">Resumen ejecutivo</h3>
-        <p className="text-[13px] text-ink-2 leading-relaxed">{analisis.resumen_ejecutivo}</p>
-      </section>
-
-      {/* 2. Fortalezas y Debilidades */}
-      <div className="grid grid-cols-2 gap-4">
-        <section className="rounded-[16px] border border-border-subtle p-6">
-          <h3 className="text-[14px] font-semibold text-ink mb-3">Fortalezas</h3>
-          {analisis.fortalezas.length > 0 ? (
-            <ul className="space-y-2">
-              {analisis.fortalezas.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-[13px] text-ink-2">
-                  <span className="text-ochre mt-0.5 leading-none shrink-0" aria-hidden="true">•</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[13px] text-ink-3">Sin información.</p>
-          )}
-        </section>
-        <section className="rounded-[16px] border border-border-subtle p-6">
-          <h3 className="text-[14px] font-semibold text-ink mb-3">Debilidades</h3>
-          {analisis.debilidades.length > 0 ? (
-            <ul className="space-y-2">
-              {analisis.debilidades.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-[13px] text-ink-2">
-                  <span className="text-terracotta mt-0.5 leading-none shrink-0" aria-hidden="true">•</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[13px] text-ink-3">Sin información.</p>
-          )}
-        </section>
+    <div className="space-y-5">
+      <div className="flex justify-end">
+        <a
+          href={`${API}/api/empresas/${empresaId}/analisis-docx`}
+          download
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-ink-2 hover:text-ink hover:bg-bg transition-colors"
+        >
+          <Download size={13} />
+          Descargar .docx
+        </a>
       </div>
 
-      {/* 3. Tipos de contrato */}
+      <div className="bg-bg rounded-xl p-5">
+        <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-2">Resumen ejecutivo</p>
+        <p className="text-[13px] text-ink-2 leading-relaxed">{analisis.resumen_ejecutivo}</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-surface rounded-xl border border-border p-4 text-center">
+          <p className="text-[28px] font-bold text-ochre tabular-nums leading-none">{analisis.anos_experiencia}</p>
+          <p className="text-[10px] text-ink-3 mt-1">Años exp.</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-4 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${habCls}`}>{habLabel}</span>
+          <p className="text-[10px] text-ink-3">Legal</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-border p-4 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${nivCls}`}>{nivLabel}</span>
+          <p className="text-[10px] text-ink-3">Financiero</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {analisis.fortalezas.length > 0 && (
+          <div className="bg-success-dim rounded-xl p-4">
+            <p className="text-[12px] font-semibold text-success mb-2">Fortalezas</p>
+            <ul className="space-y-1.5">
+              {analisis.fortalezas.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] text-ink-2">
+                  <span className="text-success mt-0.5 shrink-0 leading-none">+</span>{item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {analisis.debilidades.length > 0 && (
+          <div className="bg-terracotta-dim rounded-xl p-4">
+            <p className="text-[12px] font-semibold text-terracotta mb-2">Debilidades</p>
+            <ul className="space-y-1.5">
+              {analisis.debilidades.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] text-ink-2">
+                  <span className="text-terracotta mt-0.5 shrink-0 leading-none">–</span>{item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       {analisis.tipos_contrato_recomendados.length > 0 && (
-        <section className="rounded-[16px] border border-border-subtle p-6">
-          <h3 className="text-[14px] font-semibold text-ink mb-3">Tipos de contrato recomendados</h3>
+        <div>
+          <p className="text-[12px] font-semibold text-ink mb-2">Tipos de contrato recomendados</p>
           <div className="flex flex-wrap gap-2">
             {analisis.tipos_contrato_recomendados.map((tipo, i) => (
-              <span key={i} className="inline-flex items-center h-7 px-3 rounded-full bg-surface-2 border border-border-subtle text-[12px] text-ink-2">
-                {tipo}
-              </span>
+              <span key={i} className="inline-flex items-center h-6 px-3 rounded-full bg-bg border border-border text-[11px] text-ink-2">{tipo}</span>
             ))}
           </div>
-        </section>
+        </div>
       )}
 
-      {/* 4. Métricas */}
-      <div className="grid grid-cols-3 gap-4">
-        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center">
-          <p className="text-[11px] font-medium text-ink-3 mb-1.5">Años de experiencia</p>
-          <p className="text-[32px] font-bold text-ochre font-mono tabular-nums leading-none">
-            {analisis.anos_experiencia}
-          </p>
-        </section>
-        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center gap-2">
-          <p className="text-[11px] font-medium text-ink-3">Habilitación legal</p>
-          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${habBadge(analisis.habilitacion_legal).cls}`}>
-            {habBadge(analisis.habilitacion_legal).label}
-          </span>
-        </section>
-        <section className="rounded-[16px] border border-border-subtle p-5 flex flex-col items-center justify-center text-center gap-2">
-          <p className="text-[11px] font-medium text-ink-3">Nivel financiero</p>
-          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium ${nivelBadge(analisis.indicadores_financieros.nivel).cls}`}>
-            {nivelBadge(analisis.indicadores_financieros.nivel).label}
-          </span>
-          {analisis.indicadores_financieros.descripcion && (
-            <p className="text-[11px] text-ink-3 leading-snug text-center max-w-[140px]">
-              {analisis.indicadores_financieros.descripcion}
-            </p>
-          )}
-        </section>
-      </div>
-
-      {/* 5. Contratos ejecutados */}
       {analisis.contratos_ejecutados.length > 0 && (
-        <section className="rounded-[16px] border border-border-subtle p-6">
-          <h3 className="text-[14px] font-semibold text-ink mb-4">
-            Contratos ejecutados
-            <span className="ml-2 text-[12px] font-normal font-mono text-ink-3 tabular-nums">
-              {analisis.contratos_ejecutados.length}
-            </span>
-          </h3>
+        <div>
+          <p className="text-[12px] font-semibold text-ink mb-3">
+            Contratos ejecutados{' '}
+            <span className="font-normal text-ink-3 font-mono">{analisis.contratos_ejecutados.length}</span>
+          </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
+            <table className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3 w-[42%]">Descripción</th>
-                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3">Entidad</th>
-                  <th className="text-left pb-2.5 pr-4 text-[11px] font-medium text-ink-3 whitespace-nowrap">Valor aprox.</th>
-                  <th className="text-left pb-2.5 text-[11px] font-medium text-ink-3">Año</th>
+                  <th className="text-left pb-2 pr-3 text-[10px] font-medium text-ink-3 w-[40%]">Descripción</th>
+                  <th className="text-left pb-2 pr-3 text-[10px] font-medium text-ink-3">Entidad</th>
+                  <th className="text-left pb-2 pr-3 text-[10px] font-medium text-ink-3 whitespace-nowrap">Valor</th>
+                  <th className="text-left pb-2 text-[10px] font-medium text-ink-3">Año</th>
                 </tr>
               </thead>
               <tbody>
                 {analisis.contratos_ejecutados.map((c, i) => (
                   <tr key={i} className="border-b border-border-subtle last:border-0">
-                    <td className="py-2.5 pr-4 text-ink-2 align-top">{c.descripcion}</td>
-                    <td className="py-2.5 pr-4 text-ink-3 align-top">{c.entidad}</td>
-                    <td className="py-2.5 pr-4 text-ink-3 align-top font-mono tabular-nums whitespace-nowrap">{c.valor_aproximado}</td>
-                    <td className="py-2.5 text-ink-3 align-top font-mono tabular-nums">{c.ano}</td>
+                    <td className="py-2 pr-3 text-ink-2 align-top">{c.descripcion}</td>
+                    <td className="py-2 pr-3 text-ink-3 align-top">{c.entidad}</td>
+                    <td className="py-2 pr-3 text-ink-3 align-top font-mono whitespace-nowrap">{c.valor_aproximado}</td>
+                    <td className="py-2 text-ink-3 align-top font-mono">{c.ano}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
-      )}
-
-      {/* 6. Capacidad técnica */}
-      {analisis.capacidad_tecnica && (
-        <section className="rounded-[16px] border border-border-subtle p-6">
-          <h3 className="text-[14px] font-semibold text-ink mb-3">Capacidad técnica</h3>
-          <p className="text-[13px] text-ink-2 leading-relaxed">{analisis.capacidad_tecnica}</p>
-        </section>
-      )}
-
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton
-// ---------------------------------------------------------------------------
-
-function DetailSkeleton() {
-  return (
-    <div className="max-w-2xl space-y-8 animate-pulse">
-      <div className="rounded-[16px] border border-border-subtle p-6 space-y-4">
-        <div className="h-5 bg-surface-2 rounded w-48" />
-        <div className="grid grid-cols-3 gap-4">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="h-3 bg-surface-2 rounded w-12" />
-              <div className="h-4 bg-surface-2 rounded w-20" />
-            </div>
-          ))}
         </div>
-      </div>
-      <div className="rounded-[16px] border border-border-subtle p-6 space-y-3">
-        <div className="h-4 bg-surface-2 rounded w-28" />
-        {[0, 1].map((i) => (
-          <div key={i} className="flex items-center gap-3 py-2">
-            <div className="w-5 h-5 bg-surface-2 rounded" />
-            <div className="h-3 bg-surface-2 rounded flex-1" />
-          </div>
-        ))}
-      </div>
+      )}
+
+      {analisis.capacidad_tecnica && (
+        <div>
+          <p className="text-[12px] font-semibold text-ink mb-2">Capacidad técnica</p>
+          <p className="text-[12px] text-ink-2 leading-relaxed">{analisis.capacidad_tecnica}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -403,10 +301,9 @@ export default function EmpresaDetailPage() {
       .then(async (res) => {
         if (res.status === 404) { router.replace('/dashboard/empresas'); return }
         if (!res.ok) throw new Error(`${res.status}`)
-        const data: EmpresaDetail = await res.json()
-        setEmpresa(data)
+        setEmpresa(await res.json() as EmpresaDetail)
       })
-      .catch(() => setFetchError('No se pudo cargar la empresa. Intenta de nuevo.'))
+      .catch(() => setFetchError('No se pudo cargar la empresa.'))
       .finally(() => setIsLoading(false))
   }, [session, id, router])
 
@@ -426,11 +323,7 @@ export default function EmpresaDetailPage() {
     let idx = 0
     ALL_DOCS.forEach((doc) => {
       const f = pendingFiles[doc.id]
-      if (f) {
-        formData.append('archivos', f)
-        formData.append(`tipo_documento_${idx}`, doc.id)
-        idx++
-      }
+      if (f) { formData.append('archivos', f); formData.append(`tipo_documento_${idx}`, doc.id); idx++ }
     })
     pendingOtherFiles.forEach((f) => formData.append('archivos', f))
 
@@ -459,11 +352,17 @@ export default function EmpresaDetailPage() {
   if (sessionPending || isLoading) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <div className="h-4 w-48 bg-surface-2 rounded animate-pulse" />
+        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+          <div className="h-4 w-48 bg-border rounded animate-pulse" />
         </header>
-        <div className="flex-1 px-8 py-8 overflow-auto">
-          <DetailSkeleton />
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-[1280px] mx-auto px-8 py-8">
+            <div className="grid grid-cols-2 gap-8">
+              {[0, 1].map((i) => (
+                <div key={i} className="bg-surface rounded-2xl border border-border h-64 animate-pulse" />
+              ))}
+            </div>
+          </div>
         </div>
       </>
     )
@@ -474,15 +373,15 @@ export default function EmpresaDetailPage() {
   if (fetchError || !empresa) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <Link href="/dashboard/empresas" className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150">
-            <IconBack />Empresas
+        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+          <Link href="/dashboard/empresas" className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink transition-colors">
+            <ChevronLeft size={14} />Empresas
           </Link>
         </header>
-        <div className="flex-1 flex items-center justify-center px-8 py-8">
+        <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-[14px] text-ink-2 mb-4">{fetchError ?? 'Empresa no encontrada.'}</p>
-            <Link href="/dashboard/empresas" className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors duration-150">
+            <Link href="/dashboard/empresas" className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors">
               Volver a empresas
             </Link>
           </div>
@@ -496,160 +395,161 @@ export default function EmpresaDetailPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-        <Link
-          href="/dashboard/empresas"
-          className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150"
-        >
-          <IconBack />
+      {/* Breadcrumb */}
+      <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+        <Link href="/dashboard/empresas" className="flex items-center gap-1 text-[13px] text-ink-3 hover:text-ink transition-colors">
+          <ChevronLeft size={14} />
           Empresas
         </Link>
-        <span className="text-border-subtle" aria-hidden="true">/</span>
-        <span className="text-[13px] font-medium text-ink truncate max-w-[240px]">{empresa.nombre}</span>
+        <span className="text-border" aria-hidden="true">/</span>
+        <span className="text-[13px] font-medium text-ink truncate max-w-[260px]">{empresa.nombre}</span>
         <div className="flex-1" />
-        <button className="px-3.5 py-2 rounded-[10px] text-[13px] text-ink-2 border border-border-subtle hover:text-ink hover:bg-surface-2 transition-colors duration-150">
+        <button type="button" className="px-3 py-1.5 rounded-lg text-[12px] font-medium text-ink-2 border border-border hover:bg-surface transition-colors">
           Editar
         </button>
       </header>
 
-      <div className="flex-1 px-8 py-7 overflow-auto">
-        <div className="max-w-2xl space-y-7">
+      {/* 50/50 content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-[1280px] mx-auto px-8 py-8">
+          <div className="grid grid-cols-2 gap-8 items-start">
 
-          {/* Info */}
-          <section className="rounded-[16px] border border-border-subtle p-6">
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <h2 className="text-[15px] font-semibold text-ink">{empresa.nombre}</h2>
-              <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${estadoCls}`}>
-                {estadoLabel}
-              </span>
-            </div>
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
-              <div>
-                <dt className="text-[11px] font-medium text-ink-3 mb-0.5">NIT</dt>
-                <dd className="text-[13px] text-ink font-mono tabular-nums">{empresa.nit}</dd>
+            {/* Left column: Info + Documents */}
+            <div className="space-y-6">
+              {/* Info */}
+              <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                <div className="flex items-start justify-between gap-3 mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-terracotta-dim flex items-center justify-center shrink-0">
+                      <span className="text-[14px] font-bold text-terracotta select-none">
+                        {empresa.nombre.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <h1 className="text-[16px] font-bold text-ink leading-tight">{empresa.nombre}</h1>
+                      <p className="text-[12px] text-ink-3 font-mono mt-0.5">{empresa.nit}</p>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${estadoCls}`}>
+                    {estadoLabel}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  {empresa.sector && (
+                    <div>
+                      <dt className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-0.5">Sector</dt>
+                      <dd className="text-[13px] text-ink">{empresa.sector}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-0.5">Registrada</dt>
+                    <dd className="text-[13px] text-ink">{formatDate(empresa.created_at)}</dd>
+                  </div>
+                </dl>
               </div>
-              {empresa.sector && (
-                <div>
-                  <dt className="text-[11px] font-medium text-ink-3 mb-0.5">Sector</dt>
-                  <dd className="text-[13px] text-ink">{empresa.sector}</dd>
+
+              {/* Uploaded docs */}
+              {archivos.length > 0 && (
+                <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                  <h2 className="text-[14px] font-semibold text-ink mb-4">
+                    Documentos subidos
+                    <span className="ml-2 text-[12px] font-normal text-ink-3 font-mono">{archivos.length}</span>
+                  </h2>
+                  <ul className="space-y-1.5" role="list">
+                    {archivos.map((path, i) => (
+                      <li key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-bg border border-border">
+                        <FileText size={13} className="text-ink-3 shrink-0" />
+                        <span className="flex-1 min-w-0 text-[12px] text-ink truncate">{basename(path)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-              <div>
-                <dt className="text-[11px] font-medium text-ink-3 mb-0.5">Registrada</dt>
-                <dd className="text-[13px] text-ink">{formatDate(empresa.created_at)}</dd>
-              </div>
-            </dl>
-          </section>
 
-          {/* Documentos subidos */}
-          {archivos.length > 0 && (
-            <section className="rounded-[16px] border border-border-subtle p-6">
-              <h3 className="text-[14px] font-semibold text-ink mb-4">
-                Documentos subidos
-                <span className="ml-2 text-[12px] font-normal font-mono text-ink-3 tabular-nums">
-                  {archivos.length}
-                </span>
-              </h3>
-              <ul className="space-y-1.5" role="list">
-                {archivos.map((path, i) => (
-                  <li key={i} className="flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-surface border border-border-subtle">
-                    <IconFile />
-                    <span className="flex-1 min-w-0 text-[13px] text-ink truncate">{basename(path)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+              {/* Upload section */}
+              <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                <div className="flex items-baseline justify-between mb-4">
+                  <div>
+                    <h2 className="text-[14px] font-semibold text-ink">
+                      {archivos.length === 0 ? 'Subir documentos' : 'Agregar documentos'}
+                    </h2>
+                    <p className="text-[11px] text-ink-3 mt-0.5">Solo PDF</p>
+                  </div>
+                  {pendingCount > 0 && (
+                    <span className="text-[11px] font-mono text-ochre tabular-nums">
+                      {pendingCount} seleccionado{pendingCount > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
 
-          {/* Agregar documentos */}
-          <section className="rounded-[16px] border border-border-subtle p-6">
-            <div className="flex items-baseline justify-between mb-4">
-              <div>
-                <h3 className="text-[14px] font-semibold text-ink">
-                  {archivos.length === 0 ? 'Subir documentos' : 'Agregar documentos'}
-                </h3>
-                <p className="text-[12px] text-ink-3 mt-0.5">
-                  Solo PDF. Selecciona el tipo de documento para cada slot.
-                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ESSENTIAL_DOCS.map((doc) => (
+                    <DocumentSlot
+                      key={doc.id}
+                      doc={doc}
+                      file={pendingFiles[doc.id] ?? null}
+                      onChange={(f) => setPendingFile(doc.id, f)}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2">
+                  <DocumentSlot
+                    doc={CUADRO_EXPERIENCIA}
+                    file={pendingFiles[CUADRO_EXPERIENCIA.id] ?? null}
+                    onChange={(f) => setPendingFile(CUADRO_EXPERIENCIA.id, f)}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-[11px] text-ink-3 mb-2">Otros documentos (estados financieros, referencias...)</p>
+                  <DropZone
+                    accept={['.pdf', '.doc', '.docx', '.xlsx', '.xls']}
+                    multiple
+                    onFiles={setPendingOtherFiles}
+                    isLoading={isUploading}
+                  />
+                </div>
+
+                {uploadError && <p className="mt-3 text-[12px] text-terracotta">{uploadError}</p>}
+                {uploadSuccess && <p className="mt-3 text-[12px] text-success">Documentos subidos correctamente.</p>}
+
+                {pendingCount > 0 && !isUploading && (
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    className="mt-4 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+                  >
+                    Subir {pendingCount} {pendingCount === 1 ? 'documento' : 'documentos'}
+                  </button>
+                )}
+                {isUploading && <p className="mt-4 text-[13px] text-ink-3">Subiendo documentos...</p>}
               </div>
-              {pendingCount > 0 && (
-                <span className="text-[12px] font-mono tabular-nums text-ochre">
-                  {pendingCount} {pendingCount === 1 ? 'seleccionado' : 'seleccionados'}
-                </span>
+            </div>
+
+            {/* Right column: Analysis */}
+            <div
+              className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sticky top-[72px] max-h-[calc(100vh-120px)] overflow-auto"
+            >
+              <h2 className="text-[14px] font-semibold text-ink mb-5">Análisis del perfil</h2>
+
+              {empresa.estado === 'listo' && empresa.contexto_procesado ? (
+                <AnalisisPanel analisis={empresa.contexto_procesado} empresaId={id} />
+              ) : empresa.estado === 'procesando' ? (
+                <div className="px-4 py-4 rounded-xl bg-amber-dim border border-amber/20 text-[13px] text-amber leading-relaxed">
+                  El perfil está siendo procesado. Esto puede tomar unos minutos.
+                </div>
+              ) : empresa.estado === 'error' ? (
+                <div className="px-4 py-4 rounded-xl bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta leading-relaxed">
+                  Ocurrió un error al procesar la empresa. Contacta al administrador.
+                </div>
+              ) : (
+                <div className="px-4 py-4 rounded-xl bg-bg border border-border text-[13px] text-ink-2 leading-relaxed">
+                  El análisis se generará automáticamente una vez subas los documentos de la empresa.
+                </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {ESSENTIAL_DOCS.map((doc) => (
-                <DocumentSlot
-                  key={doc.id}
-                  doc={doc}
-                  file={pendingFiles[doc.id] ?? null}
-                  onChange={(f) => setPendingFile(doc.id, f)}
-                />
-              ))}
-            </div>
-
-            <div className="mt-3">
-              <DocumentSlot
-                doc={CUADRO_EXPERIENCIA}
-                file={pendingFiles[CUADRO_EXPERIENCIA.id] ?? null}
-                onChange={(f) => setPendingFile(CUADRO_EXPERIENCIA.id, f)}
-              />
-            </div>
-
-            <div className="mt-5">
-              <p className="text-[12px] text-ink-3 mb-3">Otros documentos (estados financieros, referencias...)</p>
-              <DropZone
-                accept={['.pdf', '.doc', '.docx', '.xlsx', '.xls']}
-                multiple
-                onFiles={setPendingOtherFiles}
-                isLoading={isUploading}
-              />
-            </div>
-
-            {uploadError && (
-              <p className="mt-3 text-[12px] text-terracotta">{uploadError}</p>
-            )}
-            {uploadSuccess && (
-              <p className="mt-3 text-[12px] text-ochre">Documentos subidos correctamente.</p>
-            )}
-
-            {pendingCount > 0 && !isUploading && (
-              <button
-                type="button"
-                onClick={handleUpload}
-                className="mt-4 px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-              >
-                Subir {pendingCount} {pendingCount === 1 ? 'documento' : 'documentos'}
-              </button>
-            )}
-            {isUploading && (
-              <p className="mt-4 text-[13px] text-ink-3">Subiendo documentos...</p>
-            )}
-          </section>
-
-          {/* Análisis */}
-          {empresa.estado === 'listo' && empresa.contexto_procesado && (
-            <AnalisisSection analisis={empresa.contexto_procesado} />
-          )}
-
-          {empresa.estado === 'pendiente' && (
-            <div className="px-4 py-3.5 rounded-[10px] bg-surface border border-border-subtle text-[13px] text-ink-2">
-              El perfil de esta empresa aún no ha sido procesado. El análisis se generará automáticamente.
-            </div>
-          )}
-          {empresa.estado === 'procesando' && (
-            <div className="px-4 py-3.5 rounded-[10px] bg-amber-dim border border-amber/20 text-[13px] text-amber">
-              El perfil de la empresa está siendo procesado. Esto puede tomar unos minutos.
-            </div>
-          )}
-          {empresa.estado === 'error' && (
-            <div className="px-4 py-3.5 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
-              Ocurrió un error al procesar la empresa. Contacta al administrador.
-            </div>
-          )}
-
+          </div>
         </div>
       </div>
     </>

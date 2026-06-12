@@ -7,25 +7,13 @@ import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
 import { api } from '@/lib/api'
 import type { PliegoDetail, EstadoPliego, ComparacionConEmpresa } from '@/lib/types'
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+import { ChevronLeft, FileText, Download, AlertTriangle, Calendar } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-
 const ACCEPT_FILES = ['.pdf', '.doc', '.docx', '.xlsx', '.xls']
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 function basename(path: string): string {
@@ -33,160 +21,23 @@ function basename(path: string): string {
 }
 
 const estadoMap: Record<EstadoPliego, { label: string; cls: string }> = {
-  pendiente: { label: 'Pendiente', cls: 'bg-surface-2 text-ink-3' },
+  pendiente:  { label: 'Pendiente',  cls: 'bg-surface-2 text-ink-3' },
   analizando: { label: 'Analizando', cls: 'bg-amber-dim text-amber' },
-  listo: { label: 'Listo', cls: 'bg-ochre-dim text-ochre' },
-  error: { label: 'Error', cls: 'bg-terracotta-dim text-terracotta' },
+  listo:      { label: 'Listo',      cls: 'bg-success-dim text-success' },
+  error:      { label: 'Error',      cls: 'bg-terracotta-dim text-terracotta' },
 }
-
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-
-function IconBack() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 3.5 6 8l4 4.5" />
-    </svg>
-  )
-}
-
-function IconFile() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-      className="text-ink-3 shrink-0">
-      <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
-      <path d="M9.5 1.5V4.5h3" />
-    </svg>
-  )
-}
-
-function IconWarning() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-      className="text-terracotta shrink-0 mt-0.5">
-      <path d="M8 2.5 1.5 13.5h13L8 2.5Z" />
-      <line x1="8" y1="7" x2="8" y2="9.5" />
-      <circle cx="8" cy="11.5" r=".5" fill="currentColor" />
-    </svg>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Score badge
-// ---------------------------------------------------------------------------
 
 function ScoreBadge({ score }: { score: number }) {
   const cls =
-    score >= 70
-      ? 'bg-ochre-dim text-ochre'
-      : score >= 40
-        ? 'bg-amber-dim text-amber'
-        : 'bg-terracotta-dim text-terracotta'
+    score >= 70 ? 'bg-success-dim text-success'
+    : score >= 40 ? 'bg-amber-dim text-amber'
+    : 'bg-terracotta-dim text-terracotta'
   return (
     <span className={`inline-flex items-center justify-center h-7 min-w-[2.5rem] px-2.5 rounded-full text-[12px] font-mono font-semibold tabular-nums shrink-0 ${cls}`}>
       {score}
     </span>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Skeleton
-// ---------------------------------------------------------------------------
-
-function DetailSkeleton() {
-  return (
-    <div className="max-w-2xl space-y-8 animate-pulse">
-      <div className="rounded-[16px] border border-border-subtle p-6 space-y-4">
-        <div className="h-5 bg-surface-2 rounded w-64" />
-        <div className="grid grid-cols-2 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="h-3 bg-surface-2 rounded w-14" />
-              <div className="h-4 bg-surface-2 rounded w-28" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-[16px] border border-border-subtle p-6 space-y-3">
-        <div className="h-4 bg-surface-2 rounded w-24" />
-        <div className="h-3 bg-surface-2 rounded w-full" />
-        <div className="h-3 bg-surface-2 rounded w-4/5" />
-        <div className="h-3 bg-surface-2 rounded w-3/4" />
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Analysis sub-sections
-// ---------------------------------------------------------------------------
-
-function ListSection({ title, items, variant = 'default' }: {
-  title: string
-  items: string[]
-  variant?: 'default' | 'warning'
-}) {
-  if (items.length === 0) return null
-  return (
-    <div>
-      <p className="text-[13px] font-semibold text-ink mb-2">{title}</p>
-      <ul className="space-y-1.5">
-        {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-[13px]">
-            {variant === 'warning' ? <IconWarning /> : (
-              <span className="w-1.5 h-1.5 rounded-full bg-border mt-1.5 shrink-0" />
-            )}
-            <span className={variant === 'warning' ? 'text-terracotta' : 'text-ink-2 leading-relaxed'}>
-              {item}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function CriteriosTable({ items }: { items: { criterio: string; peso: number }[] }) {
-  if (items.length === 0) return null
-  return (
-    <div>
-      <p className="text-[13px] font-semibold text-ink mb-2">Criterios de ponderación</p>
-      <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-border-subtle last:border-0">
-            <span className="text-[13px] text-ink-2">{item.criterio}</span>
-            <span className="text-[13px] font-mono tabular-nums text-ochre shrink-0">{item.peso}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FechasTable({ items }: { items: { evento: string; fecha: string }[] }) {
-  if (items.length === 0) return null
-  return (
-    <div>
-      <p className="text-[13px] font-semibold text-ink mb-2">Fechas clave</p>
-      <div className="space-y-1.5">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-border-subtle last:border-0">
-            <span className="text-[13px] text-ink-2">{item.evento}</span>
-            <span className="text-[12px] font-mono tabular-nums text-ink-3 shrink-0">{item.fecha}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export default function PliegoDetailPage() {
   const { data: session, isPending: sessionPending } = authClient.useSession()
@@ -206,13 +57,10 @@ export default function PliegoDetailPage() {
   const [comparaciones, setComparaciones] = useState<ComparacionConEmpresa[]>([])
   const [comparLoading, setComparLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-
   const [selectedEmpresas, setSelectedEmpresas] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    if (!sessionPending && !session) {
-      router.push('/login')
-    }
+    if (!sessionPending && !session) router.push('/login')
   }, [session, sessionPending, router])
 
   useEffect(() => {
@@ -220,15 +68,11 @@ export default function PliegoDetailPage() {
     setIsLoading(true)
     fetch(`${API}/api/pliegos/${id}`, { credentials: 'include' })
       .then(async (res) => {
-        if (res.status === 404) {
-          router.replace('/dashboard/pliegos')
-          return
-        }
+        if (res.status === 404) { router.replace('/dashboard/pliegos'); return }
         if (!res.ok) throw new Error(`${res.status}`)
-        const data: PliegoDetail = await res.json()
-        setPliego(data)
+        setPliego(await res.json() as PliegoDetail)
       })
-      .catch(() => setFetchError('No se pudo cargar el pliego. Intenta de nuevo.'))
+      .catch(() => setFetchError('No se pudo cargar el pliego.'))
       .finally(() => setIsLoading(false))
   }, [session, id, router])
 
@@ -252,9 +96,7 @@ export default function PliegoDetailPage() {
 
     try {
       const res = await fetch(`${API}/api/pliegos/${id}/archivos`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
+        method: 'POST', credentials: 'include', body: formData,
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -271,10 +113,10 @@ export default function PliegoDetailPage() {
     }
   }
 
-  function toggleEmpresa(id: string) {
+  function toggleEmpresa(empresaId: string) {
     setSelectedEmpresas((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      next.has(empresaId) ? next.delete(empresaId) : next.add(empresaId)
       return next
     })
   }
@@ -282,11 +124,15 @@ export default function PliegoDetailPage() {
   if (sessionPending || isLoading) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <div className="h-4 w-48 bg-surface-2 rounded animate-pulse" />
+        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+          <div className="h-4 w-48 bg-border rounded animate-pulse" />
         </header>
-        <div className="flex-1 px-8 py-8 overflow-auto">
-          <DetailSkeleton />
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-[1280px] mx-auto px-8 py-8">
+            <div className="grid grid-cols-2 gap-8">
+              {[0, 1].map((i) => <div key={i} className="bg-surface rounded-2xl border border-border h-64 animate-pulse" />)}
+            </div>
+          </div>
         </div>
       </>
     )
@@ -297,15 +143,15 @@ export default function PliegoDetailPage() {
   if (fetchError || !pliego) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <Link href="/dashboard/pliegos" className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150">
-            <IconBack />Pliegos
+        <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+          <Link href="/dashboard/pliegos" className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink transition-colors">
+            <ChevronLeft size={14} />Pliegos
           </Link>
         </header>
-        <div className="flex-1 flex items-center justify-center px-8 py-8">
+        <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-[14px] text-ink-2 mb-4">{fetchError ?? 'Pliego no encontrado.'}</p>
-            <Link href="/dashboard/pliegos" className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors duration-150">
+            <Link href="/dashboard/pliegos" className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors">
               Volver a pliegos
             </Link>
           </div>
@@ -319,231 +165,283 @@ export default function PliegoDetailPage() {
 
   return (
     <>
-      {/* Topbar */}
-      <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-        <Link
-          href="/dashboard/pliegos"
-          className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150"
-        >
-          <IconBack />
+      {/* Breadcrumb */}
+      <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-14 bg-bg border-b border-border shrink-0">
+        <Link href="/dashboard/pliegos" className="flex items-center gap-1 text-[13px] text-ink-3 hover:text-ink transition-colors">
+          <ChevronLeft size={14} />
           Pliegos
         </Link>
-        <span className="text-border-subtle" aria-hidden="true">/</span>
+        <span className="text-border" aria-hidden="true">/</span>
         <span className="text-[13px] font-medium text-ink truncate max-w-[280px]">{pliego.nombre}</span>
       </header>
 
-      {/* Content */}
-      <div className="flex-1 px-8 py-7 overflow-auto">
-        <div className="max-w-2xl space-y-7">
+      {/* 50/50 layout */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-[1280px] mx-auto px-8 py-8">
+          <div className="grid grid-cols-2 gap-8 items-start">
 
-          {/* Summary section */}
-          <section className="rounded-[16px] border border-border-subtle p-6">
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <h2 className="text-[15px] font-semibold text-ink leading-snug">{pliego.nombre}</h2>
-              <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${estadoCls}`}>
-                {estadoLabel}
-              </span>
-            </div>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {pliego.entidad && (
-                <div>
-                  <dt className="text-[11px] font-medium text-ink-3 mb-0.5">Entidad</dt>
-                  <dd className="text-[13px] text-ink">{pliego.entidad}</dd>
-                </div>
-              )}
-              {pliego.secop_id && (
-                <div>
-                  <dt className="text-[11px] font-medium text-ink-3 mb-0.5">ID SECOP II</dt>
-                  <dd className="text-[13px] text-ink font-mono">{pliego.secop_id}</dd>
-                </div>
-              )}
-              {pliego.fecha_limite && (
-                <div>
-                  <dt className="text-[11px] font-medium text-ink-3 mb-0.5">Fecha límite</dt>
-                  <dd className="text-[13px] text-ink">{formatDate(pliego.fecha_limite)}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-[11px] font-medium text-ink-3 mb-0.5">Subido</dt>
-                <dd className="text-[13px] text-ink">{formatDate(pliego.created_at)}</dd>
-              </div>
-            </dl>
-          </section>
-
-          {/* Documents section */}
-          <section className="rounded-[16px] border border-border-subtle p-6">
-            <h3 className="text-[15px] font-semibold text-ink mb-4">Documentos</h3>
-            {archivos.length > 0 ? (
-              <ul className="space-y-1.5 mb-5" role="list">
-                {archivos.map((path, i) => (
-                  <li key={i} className="flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] bg-surface border border-border-subtle">
-                    <IconFile />
-                    <span className="flex-1 min-w-0 text-[13px] text-ink truncate">{basename(path)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[13px] text-ink-3 mb-5">Sin documentos subidos.</p>
-            )}
-            <div className="space-y-3">
-              <p className="text-[12px] text-ink-3">Agrega más documentos a este pliego.</p>
-              <DropZone
-                accept={ACCEPT_FILES}
-                multiple
-                onFiles={setUploadFiles}
-                isLoading={isUploading}
-              />
-              {uploadError && <p className="text-[12px] text-terracotta">{uploadError}</p>}
-              {uploadSuccess && <p className="text-[12px] text-ochre">Archivos subidos correctamente.</p>}
-              {uploadFiles.length > 0 && !isUploading && (
-                <button
-                  type="button"
-                  onClick={handleUploadFiles}
-                  className="px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-                >
-                  Subir archivos
-                </button>
-              )}
-            </div>
-          </section>
-
-          {/* Analysis section */}
-          {pliego.estado === 'listo' && pliego.analisis ? (
-            <section className="rounded-[16px] border border-border-subtle p-6 space-y-5">
-              <h3 className="text-[15px] font-semibold text-ink">Análisis del pliego</h3>
-              <p className="text-[13px] text-ink-2 leading-relaxed">{pliego.analisis.resumen}</p>
-              <ListSection
-                title="Requisitos habilitantes"
-                items={pliego.analisis.requisitos_habilitantes}
-              />
-              <CriteriosTable items={pliego.analisis.criterios_ponderacion} />
-              <FechasTable items={pliego.analisis.fechas_clave} />
-              {pliego.analisis.inconsistencias.length > 0 && (
-                <div>
-                  <p className="text-[13px] font-semibold text-ink mb-2">Inconsistencias detectadas</p>
-                  <div className="rounded-[10px] bg-terracotta-dim border border-terracotta/20 p-4 space-y-2">
-                    {pliego.analisis.inconsistencias.map((item, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <IconWarning />
-                        <p className="text-[13px] text-terracotta leading-relaxed">{item}</p>
-                      </div>
-                    ))}
+            {/* Left: Info + Documents */}
+            <div className="space-y-6">
+              {/* Info card */}
+              <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                <div className="flex items-start justify-between gap-3 mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-lg bg-ochre-dim flex items-center justify-center shrink-0">
+                      <FileText size={18} className="text-ochre" />
+                    </div>
+                    <div>
+                      <h1 className="text-[15px] font-bold text-ink leading-snug">{pliego.nombre}</h1>
+                      {pliego.entidad && (
+                        <p className="text-[12px] text-ink-3 mt-0.5">{pliego.entidad}</p>
+                      )}
+                    </div>
                   </div>
+                  <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${estadoCls}`}>
+                    {estadoLabel}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  {pliego.secop_id && (
+                    <div>
+                      <dt className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-0.5">ID SECOP II</dt>
+                      <dd className="text-[13px] text-ink font-mono">{pliego.secop_id}</dd>
+                    </div>
+                  )}
+                  {pliego.fecha_limite && (
+                    <div>
+                      <dt className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-0.5">Fecha límite</dt>
+                      <dd className="flex items-center gap-1 text-[13px] text-ink">
+                        <Calendar size={12} className="text-ink-3" />
+                        {formatDate(pliego.fecha_limite)}
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-0.5">Subido</dt>
+                    <dd className="text-[13px] text-ink">{formatDate(pliego.created_at)}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Documents */}
+              <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                <h2 className="text-[14px] font-semibold text-ink mb-4">Documentos</h2>
+                {archivos.length > 0 && (
+                  <ul className="space-y-1.5 mb-4" role="list">
+                    {archivos.map((path, i) => (
+                      <li key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-bg border border-border">
+                        <FileText size={13} className="text-ink-3 shrink-0" />
+                        <span className="flex-1 min-w-0 text-[12px] text-ink truncate">{basename(path)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="space-y-3">
+                  <p className="text-[11px] text-ink-3">Agrega más documentos a este pliego.</p>
+                  <DropZone accept={ACCEPT_FILES} multiple onFiles={setUploadFiles} isLoading={isUploading} />
+                  {uploadError && <p className="text-[12px] text-terracotta">{uploadError}</p>}
+                  {uploadSuccess && <p className="text-[12px] text-success">Archivos subidos correctamente.</p>}
+                  {uploadFiles.length > 0 && !isUploading && (
+                    <button
+                      type="button"
+                      onClick={handleUploadFiles}
+                      className="px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+                    >
+                      Subir archivos
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Ranking */}
+              {pliego.estado === 'listo' && (
+                <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-[14px] font-semibold text-ink">Ranking de empresas</h2>
+                    {selectedEmpresas.size > 0 && (
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+                      >
+                        Generar anexos ({selectedEmpresas.size})
+                      </button>
+                    )}
+                  </div>
+                  {comparLoading ? (
+                    <div className="space-y-2">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="flex items-center gap-3 py-2.5 border-b border-border">
+                          <div className="w-4 h-4 bg-border rounded animate-pulse shrink-0" />
+                          <div className="flex-1 h-4 bg-border rounded animate-pulse" />
+                          <div className="w-14 h-6 bg-border rounded-full animate-pulse" />
+                          <div className="w-9 h-6 bg-border rounded-full animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : comparaciones.length === 0 ? (
+                    <p className="text-[13px] text-ink-3">Las comparaciones se calcularán automáticamente.</p>
+                  ) : (
+                    <div>
+                      {comparaciones.map((c) => {
+                        const score = c.score ?? 0
+                        const { recLabel, recCls } =
+                          score >= 70
+                            ? { recLabel: 'Participar', recCls: 'bg-success-dim text-success' }
+                            : score >= 40
+                              ? { recLabel: 'Revisar', recCls: 'bg-amber-dim text-amber' }
+                              : { recLabel: 'No participar', recCls: 'bg-terracotta-dim text-terracotta' }
+                        const isExpanded = expandedId === c.empresa_id
+
+                        return (
+                          <div key={c.empresa_id} className="border-b border-border-subtle last:border-0">
+                            <div className="flex items-center gap-3 py-3">
+                              <input
+                                type="checkbox"
+                                id={`empresa-${c.empresa_id}`}
+                                checked={selectedEmpresas.has(c.empresa_id)}
+                                onChange={() => toggleEmpresa(c.empresa_id)}
+                                className="accent-terracotta shrink-0"
+                              />
+                              <label htmlFor={`empresa-${c.empresa_id}`} className="flex-1 min-w-0 text-[13px] font-medium text-ink cursor-pointer truncate">
+                                {c.empresa_nombre}
+                              </label>
+                              <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-medium whitespace-nowrap shrink-0 ${recCls}`}>
+                                {recLabel}
+                              </span>
+                              <ScoreBadge score={score} />
+                              {c.justificacion && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedId(isExpanded ? null : c.empresa_id)}
+                                  className="text-[11px] text-ink-3 hover:text-ink-2 whitespace-nowrap transition-colors shrink-0"
+                                >
+                                  {isExpanded ? 'Ocultar' : 'Ver más'}
+                                </button>
+                              )}
+                              {score >= 40 && (
+                                <Link
+                                  href={`/dashboard/pliegos/${id}/anexos?empresaId=${c.empresa_id}`}
+                                  className="text-[11px] font-medium text-terracotta hover:text-terracotta-hover whitespace-nowrap shrink-0"
+                                >
+                                  Anexos →
+                                </Link>
+                              )}
+                            </div>
+                            {isExpanded && c.justificacion && (
+                              <div className="pb-3 pl-7 pr-2">
+                                <p className="text-[12px] text-ink-2 leading-relaxed">{c.justificacion}</p>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </section>
-          ) : pliego.estado === 'analizando' ? (
-            <div className="px-4 py-3.5 rounded-[10px] bg-amber-dim border border-amber/20 text-[13px] text-amber">
-              El pliego está siendo analizado. Esto puede tomar unos minutos.
             </div>
-          ) : pliego.estado === 'pendiente' ? (
-            <div className="px-4 py-3.5 rounded-[10px] bg-surface border border-border-subtle text-[13px] text-ink-2">
-              El pliego aún no ha sido procesado. El análisis comenzará automáticamente.
-            </div>
-          ) : pliego.estado === 'error' ? (
-            <div className="px-4 py-3.5 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
-              Ocurrió un error al analizar el pliego. Contacta al administrador.
-            </div>
-          ) : null}
 
-          {/* Ranking de empresas */}
-          {pliego.estado === 'listo' && (
-            <section className="rounded-[16px] border border-border-subtle p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[15px] font-semibold text-ink">Ranking de empresas</h3>
-                {selectedEmpresas.size > 0 && (
-                  <button
-                    type="button"
-                    className="px-3.5 py-2 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
+            {/* Right: Analysis */}
+            <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sticky top-[72px] max-h-[calc(100vh-120px)] overflow-auto">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-[14px] font-semibold text-ink">Análisis del pliego</h2>
+                {pliego.estado === 'listo' && (
+                  <a
+                    href={`${API}/api/pliegos/${id}/analisis-docx`}
+                    download
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-ink-2 hover:text-ink hover:bg-bg transition-colors"
                   >
-                    Generar anexos ({selectedEmpresas.size})
-                  </button>
+                    <Download size={13} />
+                    .docx
+                  </a>
                 )}
               </div>
 
-              {comparLoading ? (
-                <div className="space-y-0">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="flex items-center gap-4 py-3.5 border-b border-border-subtle">
-                      <div className="w-4 h-4 bg-surface-2 rounded animate-pulse shrink-0" />
-                      <div className="flex-1 h-4 bg-surface-2 rounded animate-pulse" />
-                      <div className="w-16 h-6 bg-surface-2 rounded-full animate-pulse" />
-                      <div className="w-9 h-6 bg-surface-2 rounded-full animate-pulse" />
+              {pliego.estado === 'listo' && pliego.analisis ? (
+                <div className="space-y-5">
+                  <div className="bg-bg rounded-xl p-5">
+                    <p className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider mb-2">Resumen</p>
+                    <p className="text-[13px] text-ink-2 leading-relaxed">{pliego.analisis.resumen}</p>
+                  </div>
+
+                  {pliego.analisis.requisitos_habilitantes.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-semibold text-ink mb-2">Requisitos habilitantes</p>
+                      <ul className="space-y-1.5">
+                        {pliego.analisis.requisitos_habilitantes.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[12px] text-ink-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-terracotta mt-1.5 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  ))}
-                </div>
-              ) : comparaciones.length === 0 ? (
-                <p className="text-[13px] text-ink-3">
-                  Las comparaciones se calcularán automáticamente una vez el análisis esté listo.
-                </p>
-              ) : (
-                <div className="space-y-0">
-                  {comparaciones.map((c) => {
-                    const score = c.score ?? 0
-                    const { recLabel, recCls } =
-                      score >= 70
-                        ? { recLabel: 'Participar', recCls: 'bg-ochre-dim text-ochre' }
-                        : score >= 40
-                          ? { recLabel: 'Revisar', recCls: 'bg-amber-dim text-amber' }
-                          : { recLabel: 'No participar', recCls: 'bg-terracotta-dim text-terracotta' }
+                  )}
 
-                    const isExpanded = expandedId === c.empresa_id
-
-                    return (
-                      <div key={c.empresa_id} className="border-b border-border-subtle last:border-0">
-                        <div className="flex items-center gap-4 py-3.5">
-                          <input
-                            type="checkbox"
-                            id={`empresa-${c.empresa_id}`}
-                            checked={selectedEmpresas.has(c.empresa_id)}
-                            onChange={() => toggleEmpresa(c.empresa_id)}
-                            className="accent-terracotta shrink-0"
-                          />
-                          <label
-                            htmlFor={`empresa-${c.empresa_id}`}
-                            className="flex-1 min-w-0 text-[14px] font-medium text-ink cursor-pointer truncate"
-                          >
-                            {c.empresa_nombre}
-                          </label>
-                          <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${recCls}`}>
-                            {recLabel}
-                          </span>
-                          <ScoreBadge score={score} />
-                          {c.justificacion && (
-                            <button
-                              type="button"
-                              onClick={() => setExpandedId(isExpanded ? null : c.empresa_id)}
-                              className="text-[12px] text-ink-3 hover:text-ink-2 whitespace-nowrap transition-colors duration-150 shrink-0"
-                            >
-                              {isExpanded ? 'Ocultar' : 'Justificación'}
-                            </button>
-                          )}
-                          {score >= 40 && (
-                            <Link
-                              href={`/dashboard/pliegos/${id}/anexos?empresaId=${c.empresa_id}`}
-                              className="flex items-center gap-1 text-[12px] font-medium text-terracotta hover:text-terracotta-hover whitespace-nowrap transition-colors duration-150 shrink-0"
-                            >
-                              Generar anexos
-                              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-                                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 8h10M9 4l4 4-4 4" />
-                              </svg>
-                            </Link>
-                          )}
-                        </div>
-                        {isExpanded && c.justificacion && (
-                          <div className="pb-3.5 pl-8 pr-2">
-                            <p className="text-[13px] text-ink-2 leading-relaxed">{c.justificacion}</p>
+                  {pliego.analisis.criterios_ponderacion.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-semibold text-ink mb-3">Criterios de ponderación</p>
+                      <div className="space-y-2">
+                        {pliego.analisis.criterios_ponderacion.map((item, i) => (
+                          <div key={i} className="space-y-1">
+                            <div className="flex items-center justify-between text-[12px]">
+                              <span className="text-ink-2">{item.criterio}</span>
+                              <span className="font-mono font-semibold text-ochre tabular-nums">{item.peso}%</span>
+                            </div>
+                            <div className="h-1.5 bg-bg rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-ochre rounded-full"
+                                style={{ width: `${Math.min(item.peso, 100)}%` }}
+                              />
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-          )}
+                    </div>
+                  )}
 
+                  {pliego.analisis.fechas_clave.length > 0 && (
+                    <div>
+                      <p className="text-[12px] font-semibold text-ink mb-2">Fechas clave</p>
+                      <div className="space-y-1">
+                        {pliego.analisis.fechas_clave.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between gap-3 py-2 border-b border-border-subtle last:border-0">
+                            <span className="text-[12px] text-ink-2">{item.evento}</span>
+                            <span className="text-[11px] font-mono text-ink-3 shrink-0">{item.fecha}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {pliego.analisis.inconsistencias.length > 0 && (
+                    <div className="rounded-xl bg-terracotta-dim border border-terracotta/20 p-4 space-y-2">
+                      <p className="text-[12px] font-semibold text-terracotta">Inconsistencias detectadas</p>
+                      {pliego.analisis.inconsistencias.map((item, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <AlertTriangle size={13} className="text-terracotta shrink-0 mt-0.5" />
+                          <p className="text-[12px] text-terracotta leading-relaxed">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : pliego.estado === 'analizando' ? (
+                <div className="px-4 py-4 rounded-xl bg-amber-dim border border-amber/20 text-[13px] text-amber leading-relaxed">
+                  El pliego está siendo analizado. Esto puede tomar unos minutos.
+                </div>
+              ) : pliego.estado === 'pendiente' ? (
+                <div className="px-4 py-4 rounded-xl bg-bg border border-border text-[13px] text-ink-2 leading-relaxed">
+                  El análisis comenzará automáticamente una vez procesado.
+                </div>
+              ) : pliego.estado === 'error' ? (
+                <div className="px-4 py-4 rounded-xl bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta leading-relaxed">
+                  Ocurrió un error al analizar el pliego. Contacta al administrador.
+                </div>
+              ) : null}
+            </div>
+
+          </div>
         </div>
       </div>
     </>

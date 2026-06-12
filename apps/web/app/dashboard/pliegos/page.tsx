@@ -6,144 +6,113 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { api } from '@/lib/api'
 import type { LicitacionListItem, TipoFase, EstadoLicitacion } from '@/lib/types'
+import { Plus, ArrowRight } from 'lucide-react'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
-void API // evita warning de variable no usada
+const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  const d = new Date(iso)
+  return `${d.getDate()} ${d.toLocaleString('es-CO', { month: 'short' }).replace(/\./g, '')} ${d.getFullYear()}`
 }
 
-const ESTADO_LIC_MAP: Record<EstadoLicitacion, { label: string; cls: string }> = {
-  activa:     { label: 'Activa',     cls: 'bg-ochre-dim text-ochre' },
-  adjudicada: { label: 'Adjudicada', cls: 'bg-surface-2 text-ink-2' },
-  archivada:  { label: 'Archivada',  cls: 'bg-surface-2 text-ink-3' },
+const ESTADO_MAP: Record<EstadoLicitacion, { label: string; bg: string; color: string }> = {
+  activa:     { label: 'Activa',     bg: '#FEF9C3', color: '#854D0E' },
+  adjudicada: { label: 'Adjudicada', bg: '#DCFCE7', color: '#15803D' },
+  archivada:  { label: 'Archivada',  bg: '#F3F4F6', color: '#6B7280' },
 }
 
-const FASE_FASE_LABEL: Record<TipoFase, string> = {
-  prepliego:                'En pre-pliego',
-  pliego_definitivo:        'Pliego definitivo',
-  anexos:                   'Generando anexos',
-  evaluacion_observaciones: 'En evaluación',
+const FASE_MAP: Record<TipoFase, { label: string; bg: string; color: string }> = {
+  prepliego:                { label: 'Pre-pliego',    bg: '#F3F4F6', color: '#6B7280' },
+  pliego_definitivo:        { label: 'Pliego',        bg: '#FEF0ED', color: '#E8593C' },
+  anexos:                   { label: 'Anexos',        bg: '#FEF9C3', color: '#854D0E' },
+  evaluacion_observaciones: { label: 'En evaluación', bg: '#DCFCE7', color: '#15803D' },
 }
 
-// ---------------------------------------------------------------------------
-// Íconos
-// ---------------------------------------------------------------------------
-
-function IconPlus() {
+function SkeletonCard() {
   return (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="8" y1="2.5" x2="8" y2="13.5" /><line x1="2.5" y1="8" x2="13.5" y2="8" />
-    </svg>
-  )
-}
-
-function IconChevron() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3.5 10 8l-4 4.5" />
-    </svg>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-4 py-4 border-b border-border-subtle px-1">
-      <div className="w-9 h-9 rounded-full bg-surface-2 animate-pulse shrink-0" />
-      <div className="flex-1 space-y-1.5">
-        <div className="h-3.5 bg-surface-2 rounded animate-pulse w-56" />
-        <div className="h-3 bg-surface-2 rounded animate-pulse w-32" />
+    <div className="bg-surface rounded-xl border border-border p-5 space-y-4 animate-pulse shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-border shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-border rounded w-48" />
+          <div className="h-3 bg-border rounded w-32" />
+        </div>
       </div>
-      <div className="h-6 bg-surface-2 rounded-full animate-pulse w-24" />
-      <div className="h-6 bg-surface-2 rounded-full animate-pulse w-20 hidden md:block" />
-      <div className="h-3 bg-surface-2 rounded animate-pulse w-20 hidden md:block" />
-      <div className="w-4 h-4 bg-surface-2 rounded animate-pulse" />
+      <div className="flex gap-2">
+        <div className="h-5 bg-border rounded w-20" />
+        <div className="h-5 bg-border rounded w-16" />
+      </div>
+      <div className="h-px bg-border" />
+      <div className="h-3 bg-border rounded w-24" />
     </div>
   )
 }
 
-function LicitacionRow({ lic }: { lic: LicitacionListItem }) {
-  const estado = ESTADO_LIC_MAP[lic.estado as EstadoLicitacion] ?? ESTADO_LIC_MAP.activa
-  const faseLabel = lic.ultima_fase_listo ? FASE_FASE_LABEL[lic.ultima_fase_listo] : null
+function LicitacionCard({ lic }: { lic: LicitacionListItem }) {
+  const estado = ESTADO_MAP[lic.estado] ?? ESTADO_MAP.activa
+  const fase = lic.ultima_fase_listo ? FASE_MAP[lic.ultima_fase_listo] : null
 
   return (
     <Link
       href={`/dashboard/licitaciones/${lic.id}`}
-      className="flex items-center gap-4 py-4 border-b border-border-subtle px-1 rounded-sm hover:bg-surface transition-colors duration-150 group -mx-1"
+      className="bg-surface rounded-xl border border-border p-5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.09)] transition-shadow duration-200 flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
     >
-      {/* Icon circle */}
-      <div className="w-9 h-9 rounded-full bg-ochre-dim flex items-center justify-center shrink-0 [&_svg]:text-ochre">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
-          <path d="M9.5 1.5V4.5h3" />
-          <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
-        </svg>
-      </div>
-
-      {/* Nombre + entidad */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-medium text-ink truncate">{lic.nombre}</p>
-        <p className="text-[12px] text-ink-2 truncate mt-0.5">
-          {lic.entidad_contratante ?? <span className="text-ink-3">Sin entidad</span>}
-          {lic.secop_id && (
-            <> · <span className="text-ink-3 font-mono">{lic.secop_id}</span></>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+            stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
+            <path d="M9.5 1.5V4.5h3" />
+            <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] text-[#111827] leading-snug line-clamp-2" style={{ ...OF, fontWeight: 600 }}>
+            {lic.nombre}
+          </p>
+          {lic.entidad_contratante && (
+            <p className="text-[13px] text-[#6B7280] mt-0.5 truncate date-caption">{lic.entidad_contratante}</p>
           )}
-        </p>
+          {lic.secop_id && (
+            <p className="text-[12px] text-[#9CA3AF] mt-0.5 date-caption">{lic.secop_id}</p>
+          )}
+        </div>
       </div>
 
-      {/* Fase más avanzada */}
-      {faseLabel ? (
-        <span className="inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 bg-ochre-dim text-ochre">
-          {faseLabel}
+      <div className="flex flex-wrap gap-2 flex-1">
+        <span
+          className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
+          style={{ ...OF, fontWeight: 600, background: estado.bg, color: estado.color }}
+        >
+          {estado.label}
         </span>
-      ) : (
-        <span className="inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 bg-surface-2 text-ink-3">
-          Sin análisis
-        </span>
-      )}
+        {fase ? (
+          <span
+            className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
+            style={{ ...OF, fontWeight: 600, background: fase.bg, color: fase.color }}
+          >
+            {fase.label}
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
+            style={{ ...OF, fontWeight: 600, background: '#F3F4F6', color: '#9CA3AF' }}
+          >
+            Sin análisis
+          </span>
+        )}
+      </div>
 
-      {/* Estado licitación */}
-      <span className={`hidden md:inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${estado.cls}`}>
-        {estado.label}
-      </span>
-
-      {/* Fecha */}
-      <span className="hidden md:block w-24 text-[12px] text-ink-3 font-mono tabular-nums shrink-0 text-right">
-        {formatDate(lic.created_at)}
-      </span>
-
-      {/* Chevron */}
-      <span className="text-ink-3 group-hover:text-ink-2 transition-colors duration-150 shrink-0">
-        <IconChevron />
-      </span>
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#F0F4F8]">
+        <p className="text-[13px] text-[#6B7280] date-caption">{formatDate(lic.created_at)}</p>
+      </div>
     </Link>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export default function LicitacionesListPage() {
   const { data: session, isPending: sessionPending } = authClient.useSession()
   const router = useRouter()
-
   const [licitaciones, setLicitaciones] = useState<LicitacionListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -157,83 +126,78 @@ export default function LicitacionesListPage() {
     setIsLoading(true)
     api.licitaciones.list()
       .then(setLicitaciones)
-      .catch(() => setError('No se pudieron cargar las licitaciones. Intenta de nuevo.'))
+      .catch(() => setError('No se pudieron cargar las licitaciones.'))
       .finally(() => setIsLoading(false))
   }, [session])
 
-  if (sessionPending) {
-    return (
-      <>
-        <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-          <div className="h-4 w-24 bg-surface-2 rounded animate-pulse" />
-        </header>
-        <div className="px-8 py-7 space-y-0">
-          {Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
-        </div>
-      </>
-    )
-  }
-
+  if (sessionPending) return null
   if (!session) return null
 
   return (
-    <>
-      {/* Topbar */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
-        <h1 className="text-[15px] font-semibold text-ink tracking-tight">Licitaciones</h1>
-        <Link
-          href="/dashboard/pliegos/nuevo"
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-        >
-          <IconPlus />
-          Nueva licitación
-        </Link>
-      </header>
+    <div className="flex-1 overflow-auto">
+      <div className="max-w-[1280px] mx-auto px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-[26px] text-[#111827]" style={{ ...OF, fontWeight: 700, letterSpacing: '-0.01em' }}>
+              Licitaciones
+            </h1>
+            <p className="text-[14px] text-[#6B7280] mt-1" style={{ ...OF, fontWeight: 500 }}>
+              {isLoading ? 'Cargando...' : `${licitaciones.length} ${licitaciones.length === 1 ? 'licitación' : 'licitaciones'}`}
+            </p>
+          </div>
+          <Link
+            href="/dashboard/pliegos/nuevo"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[14px] bg-terracotta text-white hover:bg-terracotta-hover transition-colors shadow-[0_1px_3px_rgba(232,89,60,0.3)]"
+            style={{ ...OF, fontWeight: 600 }}
+          >
+            <Plus size={14} />
+            Nueva licitación
+          </Link>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 px-8 py-7 overflow-auto">
         {error && (
-          <div className="mb-5 px-4 py-3 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
+          <div
+            className="mb-6 px-4 py-3 rounded-xl border text-[14px]"
+            style={{ background: '#FEE2E2', borderColor: 'rgba(220,38,38,0.2)', color: '#DC2626', ...OF }}
+          >
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="space-y-0">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+            {Array.from({ length: 6 }, (_, i) => i).map((i) => <SkeletonCard key={i} />)}
           </div>
         ) : licitaciones.length === 0 ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center max-w-xs">
-              <p className="text-[14px] font-semibold text-ink mb-2">Sin licitaciones</p>
-              <p className="text-[13px] text-ink-2 leading-relaxed mb-6 text-pretty">
-                Sube el pliego de condiciones de una licitación del SECOP&nbsp;II para empezar el análisis.
-              </p>
-              <Link
-                href="/dashboard/pliegos/nuevo"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150"
-              >
-                <IconPlus />
-                Nueva licitación
-              </Link>
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-14 h-14 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-4">
+              <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+                stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
+                <path d="M9.5 1.5V4.5h3" />
+                <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
+              </svg>
             </div>
+            <p className="text-[16px] text-[#111827] mb-2" style={{ ...OF, fontWeight: 600 }}>Sin licitaciones</p>
+            <p className="text-[14px] text-[#6B7280] text-center max-w-xs leading-relaxed mb-6" style={{ ...OF, fontWeight: 500 }}>
+              Sube el pliego de condiciones de una licitación del SECOP&nbsp;II para empezar el análisis.
+            </p>
+            <Link
+              href="/dashboard/pliegos/nuevo"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[14px] bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+              style={{ ...OF, fontWeight: 600 }}
+            >
+              <Plus size={14} />
+              Nueva licitación
+              <ArrowRight size={14} />
+            </Link>
           </div>
         ) : (
-          <div>
-            <div className="flex items-center gap-4 pb-2.5 border-b border-border px-1">
-              <div className="w-9 shrink-0" aria-hidden="true" />
-              <span className="flex-1 text-[11px] font-medium text-ink-3">Licitación</span>
-              <span className="text-[11px] font-medium text-ink-3 w-28 shrink-0">Fase actual</span>
-              <span className="hidden md:block text-[11px] font-medium text-ink-3 w-20 shrink-0">Estado</span>
-              <span className="hidden md:block w-24 text-[11px] font-medium text-ink-3 shrink-0 text-right">Creada</span>
-              <div className="w-4 shrink-0" aria-hidden="true" />
-            </div>
-            <div>
-              {licitaciones.map((l) => <LicitacionRow key={l.id} lic={l} />)}
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+            {licitaciones.map((l) => <LicitacionCard key={l.id} lic={l} />)}
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }

@@ -6,6 +6,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { UPLOAD_DIR } from '../middleware/upload'
 import type { AppVariables } from '../types'
 import { prepareDocumentsForClaude } from '../services/pdf-extractor'
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Table, TableRow, TableCell, WidthType, BorderStyle,
+} from 'docx'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -208,6 +212,149 @@ empresasRouter.post('/:id/archivos', async (c) => {
   } catch (error) {
     console.error('Error agregando archivos a empresa:', error)
     return c.json({ error: 'Error al agregar archivos' }, 500)
+  }
+})
+
+// GET /api/empresas/:id/analisis-docx — descargar análisis como Word
+empresasRouter.get('/:id/analisis-docx', async (c) => {
+  const user = c.get('user')
+  const empresaId = c.req.param('id')
+
+  try {
+    const result = await pool.query(
+      `SELECT e.nombre, e.nit, e.sector, e.contexto_procesado, e.estado
+       FROM empresas e
+       INNER JOIN abogados a ON e.abogado_id = a.id
+       WHERE e.id = $1 AND a.email = $2`,
+      [empresaId, user.email]
+    )
+
+    if (result.rows.length === 0) {
+      return c.json({ error: 'Empresa no encontrada' }, 404)
+    }
+
+    const empresa = result.rows[0]
+    const analisis = empresa.contexto_procesado
+
+    if (!analisis) {
+      return c.json({ error: 'La empresa aún no tiene análisis generado' }, 400)
+    }
+
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
+    const cellBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder }
+
+    const children: Paragraph[] = [
+      new Paragraph({
+        text: `Análisis de empresa: ${empresa.nombre}`,
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: `NIT: ${empresa.nit}`, bold: true })],
+        spacing: { after: 100 },
+      }),
+      empresa.sector
+        ? new Paragraph({ text: `Sector: ${empresa.sector}`, spacing: { after: 300 } })
+        : new Paragraph({ text: '' }),
+      new Paragraph({ text: 'Resumen ejecutivo', heading: HeadingLevel.HEADING_2, spacing: { after: 120 } }),
+      new Paragraph({ text: analisis.resumen_ejecutivo ?? '', spacing: { after: 300 } }),
+    ]
+
+    if (analisis.fortalezas?.length) {
+      children.push(new Paragraph({ text: 'Fortalezas', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      for (const item of analisis.fortalezas) {
+        children.push(new Paragraph({ text: `• ${item}`, spacing: { after: 80 } }))
+      }
+      children.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+    }
+
+    if (analisis.debilidades?.length) {
+      children.push(new Paragraph({ text: 'Debilidades', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      for (const item of analisis.debilidades) {
+        children.push(new Paragraph({ text: `• ${item}`, spacing: { after: 80 } }))
+      }
+      children.push(new Paragraph({ text: '', spacing: { after: 200 } }))
+    }
+
+    children.push(
+      new Paragraph({ text: 'Indicadores', heading: HeadingLevel.HEADING_2, spacing: { after: 120 } }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Años de experiencia: `, bold: true }),
+          new TextRun({ text: String(analisis.anos_experiencia ?? '—') }),
+        ],
+        spacing: { after: 80 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Habilitación legal: `, bold: true }),
+          new TextRun({ text: analisis.habilitacion_legal ?? '—' }),
+        ],
+        spacing: { after: 80 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Nivel financiero: `, bold: true }),
+          new TextRun({ text: analisis.indicadores_financieros?.nivel ?? '—' }),
+        ],
+        spacing: { after: 300 },
+      }),
+    )
+
+    if (analisis.tipos_contrato_recomendados?.length) {
+      children.push(new Paragraph({ text: 'Tipos de contrato recomendados', heading: HeadingLevel.HEADING_2, spacing: { after: 100 } }))
+      children.push(new Paragraph({ text: analisis.tipos_contrato_recomendados.join(', '), spacing: { after: 300 } }))
+    }
+
+    if (analisis.contratos_ejecutados?.length) {
+      children.push(new Paragraph({ text: 'Contratos ejecutados', heading: HeadingLevel.HEADING_2, spacing: { after: 200 } }))
+      const tableRows = [
+        new TableRow({
+          children: ['Descripción', 'Entidad', 'Valor', 'Año'].map((h) =>
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+              borders: cellBorders,
+              width: { size: 25, type: WidthType.PERCENTAGE },
+            })
+          ),
+        }),
+        ...analisis.contratos_ejecutados.map((c: { descripcion: string; entidad: string; valor_aproximado: string; ano: string }) =>
+          new TableRow({
+            children: [c.descripcion, c.entidad, c.valor_aproximado, String(c.ano)].map((val) =>
+              new TableCell({
+                children: [new Paragraph({ text: val ?? '' })],
+                borders: cellBorders,
+                width: { size: 25, type: WidthType.PERCENTAGE },
+              })
+            ),
+          })
+        ),
+      ]
+      children.push(
+        new Paragraph({ text: '' }),
+      )
+    }
+
+    if (analisis.capacidad_tecnica) {
+      children.push(
+        new Paragraph({ text: 'Capacidad técnica', heading: HeadingLevel.HEADING_2, spacing: { after: 120 } }),
+        new Paragraph({ text: analisis.capacidad_tecnica, spacing: { after: 300 } }),
+      )
+    }
+
+    const doc = new Document({ sections: [{ children }] })
+    const buffer = await Packer.toBuffer(doc)
+    const filename = `analisis-${empresa.nombre.replace(/\s+/g, '-').toLowerCase()}.docx`
+
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  } catch (error) {
+    console.error('Error generando docx empresa:', error)
+    return c.json({ error: 'Error al generar el documento' }, 500)
   }
 })
 

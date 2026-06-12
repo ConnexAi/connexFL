@@ -16,6 +16,7 @@ import type {
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 const ACCEPT_PLANTILLAS = ['.docx', '.xlsx', '.pdf']
 const MAX_POLL_ATTEMPTS = 20
+const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -75,15 +76,47 @@ function IconDownload() {
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return null
-  const cls =
-    score >= 70
-      ? 'bg-ochre-dim text-ochre'
-      : score >= 40
-        ? 'bg-amber-dim text-amber'
-        : 'bg-terracotta-dim text-terracotta'
+  const bg = score >= 70 ? '#DCFCE7' : score >= 50 ? '#FEF9C3' : '#FEE2E2'
+  const color = score >= 70 ? '#15803D' : score >= 50 ? '#854D0E' : '#DC2626'
   return (
-    <span className={`inline-flex items-center justify-center h-6 min-w-[2.25rem] px-2 rounded-full text-[11px] font-mono font-semibold tabular-nums shrink-0 ${cls}`}>
+    <span
+      className="inline-flex items-center justify-center h-6 min-w-[2.25rem] px-2 rounded-full text-[12px] shrink-0"
+      style={{ ...OF, fontWeight: 600, background: bg, color }}
+    >
       {score}
+    </span>
+  )
+}
+
+function RecomendacionBadge({ score }: { score: number | null }) {
+  if (score === null) {
+    return (
+      <span className="inline-flex items-center h-[20px] px-2 rounded-[5px] text-[11px] bg-[#F3F4F6] text-[#6B7280]"
+        style={{ ...OF, fontWeight: 600 }}>
+        Sin evaluar
+      </span>
+    )
+  }
+  if (score >= 70) {
+    return (
+      <span className="inline-flex items-center h-[20px] px-2 rounded-[5px] text-[11px] bg-[#DCFCE7] text-[#15803D]"
+        style={{ ...OF, fontWeight: 600 }}>
+        Recomendado · Score: {score}
+      </span>
+    )
+  }
+  if (score >= 50) {
+    return (
+      <span className="inline-flex items-center h-[20px] px-2 rounded-[5px] text-[11px] bg-[#FEF9C3] text-[#854D0E]"
+        style={{ ...OF, fontWeight: 600 }}>
+        Aceptable · Score: {score}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center h-[20px] px-2 rounded-[5px] text-[11px] bg-[#FEE2E2] text-[#DC2626]"
+      style={{ ...OF, fontWeight: 600 }}>
+      No recomendado · Score: {score}
     </span>
   )
 }
@@ -132,22 +165,23 @@ function AnexoCard({ anexo, idx, pliegoId, empresaId }: AnexoCardProps) {
   return (
     <div className="rounded-[16px] border border-border-subtle overflow-hidden">
       <div className="px-5 py-4 border-b border-border-subtle bg-surface">
-        <h3 className="text-[13px] font-semibold text-ink truncate">{anexo.nombre}</h3>
+        <h3 className="text-[14px] text-[#111827] truncate" style={{ ...OF, fontWeight: 600 }}>{anexo.nombre}</h3>
       </div>
 
       <div className="p-5 space-y-4">
         {completados.length > 0 && (
           <div>
-            <p className="text-[11px] font-semibold text-ochre uppercase tracking-wide mb-2">
+            <p className="text-[12px] text-[#854D0E] uppercase tracking-wide mb-2"
+              style={{ ...OF, fontWeight: 600 }}>
               Campos completados ({completados.length})
             </p>
             <ul className="space-y-1.5">
               {completados.map((r, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px]">
-                  <span className="mt-0.5 text-ochre shrink-0"><IconCheckSmall /></span>
-                  <span className="font-mono text-ink-3 shrink-0">{r.campo_original}</span>
-                  <span className="text-ink-3 shrink-0">→</span>
-                  <span className="text-ink break-all">{r.valor_nuevo}</span>
+                <li key={i} className="flex items-start gap-2 text-[13px]">
+                  <span className="mt-0.5 text-[#15803D] shrink-0"><IconCheckSmall /></span>
+                  <span className="text-[#6B7280] shrink-0" style={OF}>{r.campo_original}</span>
+                  <span className="text-[#9CA3AF] shrink-0">→</span>
+                  <span className="text-[#111827] break-all" style={OF}>{r.valor_nuevo}</span>
                 </li>
               ))}
             </ul>
@@ -156,13 +190,14 @@ function AnexoCard({ anexo, idx, pliegoId, empresaId }: AnexoCardProps) {
 
         {anexo.campos_pendientes.length > 0 && (
           <div>
-            <p className="text-[11px] font-semibold text-amber uppercase tracking-wide mb-2">
+            <p className="text-[12px] text-[#854D0E] uppercase tracking-wide mb-2"
+              style={{ ...OF, fontWeight: 600 }}>
               Pendiente de completar ({anexo.campos_pendientes.length})
             </p>
             <ul className="space-y-1">
               {anexo.campos_pendientes.map((campo, i) => (
-                <li key={i} className="flex items-start gap-2 text-[12px] text-ink-2">
-                  <span className="mt-0.5 text-amber shrink-0"><IconWarn /></span>
+                <li key={i} className="flex items-start gap-2 text-[13px] text-[#374151]" style={OF}>
+                  <span className="mt-0.5 text-[#854D0E] shrink-0"><IconWarn /></span>
                   {campo}
                 </li>
               ))}
@@ -175,7 +210,8 @@ function AnexoCard({ anexo, idx, pliegoId, empresaId }: AnexoCardProps) {
             href={downloadUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium border border-border-subtle hover:bg-surface-2 transition-colors duration-150 text-ink-2"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[13px] border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] transition-colors text-[#374151]"
+            style={{ ...OF, fontWeight: 600 }}
           >
             <IconDownload />
             Descargar .docx
@@ -213,12 +249,10 @@ function AnexosContent() {
   const [pollError, setPollError] = useState<string | null>(null)
   const pollCountRef = useRef(0)
 
-  // Session guard
   useEffect(() => {
     if (!sessionPending && !session) router.push('/login')
   }, [session, sessionPending, router])
 
-  // Load pliego + comparaciones, then check current estado_anexos
   useEffect(() => {
     if (!session || !id) return
     let cancelled = false
@@ -231,12 +265,13 @@ function AnexosContent() {
         setPliego(p)
         setComparaciones(c)
 
+        // Pick empresa: prefer URL param, then best score (regardless of threshold)
         let empresaId = initialEmpresaId
         if (!empresaId && c.length > 0) {
           const best = c.reduce((top, cur) =>
             (cur.score ?? 0) > (top.score ?? 0) ? cur : top
           )
-          if ((best.score ?? 0) >= 40) empresaId = best.empresa_id
+          empresaId = best.empresa_id
         }
         if (empresaId) {
           setSelectedEmpresaId(empresaId)
@@ -246,7 +281,7 @@ function AnexosContent() {
             setAnexosData(data)
             if (data.estado_anexos === 'procesando') setIsPolling(true)
           } catch {
-            // No hay registro de anexos todavia — ignorar 404
+            // No anexos yet — ok
           }
         }
       } catch (err) {
@@ -260,7 +295,6 @@ function AnexosContent() {
     return () => { cancelled = true }
   }, [session, id, initialEmpresaId])
 
-  // Polling — 3s interval mientras isPolling, máximo MAX_POLL_ATTEMPTS intentos
   useEffect(() => {
     if (!isPolling || !selectedEmpresaId || !id) return
     pollCountRef.current = 0
@@ -286,6 +320,20 @@ function AnexosContent() {
 
     return () => clearInterval(interval)
   }, [isPolling, selectedEmpresaId, id])
+
+  // When empresa changes, reload its anexos state
+  async function handleSelectEmpresa(empresaId: string) {
+    setSelectedEmpresaId(empresaId)
+    setAnexosData(null)
+    setIsPolling(false)
+    try {
+      const data = await api.anexos.get(id, empresaId)
+      setAnexosData(data)
+      if (data.estado_anexos === 'procesando') setIsPolling(true)
+    } catch {
+      // No record yet
+    }
+  }
 
   async function handleGenerar() {
     if (!selectedEmpresaId || plantillas.length === 0) return
@@ -319,11 +367,9 @@ function AnexosContent() {
   if (!session) return null
 
   const selectedEmpresa = comparaciones.find((c) => c.empresa_id === selectedEmpresaId)
-  const elegibles = comparaciones.filter((c) => (c.score ?? 0) >= 40)
   const pliegoNombre = pliego?.nombre ?? 'Pliego'
   const canGenerar = !!selectedEmpresaId && plantillas.length > 0 && !isGenerating
 
-  // Derived view
   const view: 'listo' | 'procesando' | 'form' =
     anexosData?.estado_anexos === 'listo' ? 'listo' :
     isPolling ? 'procesando' :
@@ -339,30 +385,32 @@ function AnexosContent() {
 
   return (
     <>
-      {/* Topbar breadcrumb */}
+      {/* Breadcrumb */}
       <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <Link
           href="/dashboard/pliegos"
-          className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150 shrink-0"
+          className="flex items-center gap-1 text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150 shrink-0"
+          style={OF}
         >
           <IconBack />
           Pliegos
         </Link>
-        <span className="text-border-subtle" aria-hidden="true">/</span>
+        <span className="text-[#E8ECF0]" aria-hidden="true">/</span>
         <Link
           href={`/dashboard/pliegos/${id}`}
-          className="text-[13px] text-ink-2 hover:text-ink transition-colors duration-150 truncate max-w-[180px]"
+          className="text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150 truncate max-w-[180px]"
+          style={OF}
         >
           {pliegoNombre}
         </Link>
-        <span className="text-border-subtle" aria-hidden="true">/</span>
-        <span className="text-[13px] font-medium text-ink">Generar Anexos</span>
+        <span className="text-[#E8ECF0]" aria-hidden="true">/</span>
+        <span className="text-[14px] text-[#111827]" style={{ ...OF, fontWeight: 600 }}>Generar Anexos</span>
       </header>
 
       <div className="flex-1 px-8 py-7 overflow-auto">
 
         {pollError && (
-          <div className="max-w-2xl mb-5 px-4 py-3 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
+          <div className="max-w-2xl mb-5 px-4 py-3 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20 text-[14px] text-[#DC2626]" style={OF}>
             {pollError}
           </div>
         )}
@@ -373,18 +421,17 @@ function AnexosContent() {
         {view === 'listo' && selectedEmpresaId && (
           <div className="max-w-2xl space-y-5">
             {/* Summary */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 rounded-[12px] bg-ochre-dim border border-ochre/20">
-              <span className="text-[13px] font-semibold text-ochre">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 rounded-[12px] bg-[#FEF9C3] border border-[#854D0E]/20">
+              <span className="text-[14px] text-[#854D0E]" style={{ ...OF, fontWeight: 600 }}>
                 {anexosGenerados.length}{' '}
                 {anexosGenerados.length === 1 ? 'anexo generado' : 'anexos generados'}
               </span>
-              <span className="text-ochre/30 select-none">·</span>
-              <span className="text-[12px] text-ochre/80">{totalReemplazados} campos completados</span>
-              <span className="text-ochre/30 select-none">·</span>
-              <span className="text-[12px] text-amber">{totalPendientes} pendientes</span>
+              <span className="text-[#854D0E]/30 select-none">·</span>
+              <span className="text-[13px] text-[#854D0E]/80" style={OF}>{totalReemplazados} campos completados</span>
+              <span className="text-[#854D0E]/30 select-none">·</span>
+              <span className="text-[13px] text-[#854D0E]" style={OF}>{totalPendientes} pendientes</span>
             </div>
 
-            {/* Cards */}
             {anexosGenerados.map((anexo, i) => (
               <AnexoCard
                 key={i}
@@ -398,7 +445,8 @@ function AnexosContent() {
             <div className="pb-4">
               <Link
                 href={`/dashboard/pliegos/${id}`}
-                className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150"
+                className="flex items-center gap-1 text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150"
+                style={OF}
               >
                 <IconBack />
                 Volver al pliego
@@ -416,10 +464,10 @@ function AnexosContent() {
               <div className="text-terracotta">
                 <IconSpinner size={32} />
               </div>
-              <p className="text-[14px] font-medium text-ink">
+              <p className="text-[15px] text-[#111827]" style={{ ...OF, fontWeight: 600 }}>
                 Claude está procesando los anexos...
               </p>
-              <p className="text-[13px] text-ink-3 max-w-sm leading-relaxed">
+              <p className="text-[14px] text-[#6B7280] max-w-sm leading-relaxed" style={OF}>
                 Analizando las plantillas y completando los campos con el perfil de la empresa y los datos del proceso.
               </p>
             </div>
@@ -434,61 +482,63 @@ function AnexosContent() {
 
             {/* Empresa seleccionada */}
             <section className="rounded-[16px] border border-border-subtle p-6">
-              <h2 className="text-[14px] font-semibold text-ink mb-4">Empresa</h2>
+              <h2 className="text-[15px] text-[#111827] mb-4" style={{ ...OF, fontWeight: 600 }}>Empresa</h2>
 
               {selectedEmpresa ? (
                 <div className="flex items-center gap-3 p-3.5 rounded-[12px] bg-surface border border-border-subtle">
-                  <div className="w-9 h-9 rounded-full bg-terracotta-dim flex items-center justify-center shrink-0">
-                    <span className="text-[12px] font-semibold text-terracotta select-none">
+                  <div className="w-9 h-9 rounded-[8px] bg-[#F3F4F6] flex items-center justify-center shrink-0">
+                    <span style={{ ...OF, fontWeight: 700, fontSize: 12, color: '#374151', lineHeight: 1 }}>
                       {selectedEmpresa.empresa_nombre
                         .split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-medium text-ink truncate">
+                    <p className="text-[14px] text-[#111827] truncate" style={{ ...OF, fontWeight: 600 }}>
                       {selectedEmpresa.empresa_nombre}
                     </p>
-                    <p className="text-[12px] text-ink-3 font-mono">{selectedEmpresa.nit}</p>
+                    <p className="text-[12px] text-[#6B7280] date-caption">{selectedEmpresa.nit}</p>
                   </div>
-                  <ScoreBadge score={selectedEmpresa.score} />
-                  {elegibles.length > 1 && (
+                  <RecomendacionBadge score={selectedEmpresa.score} />
+                  {comparaciones.length > 1 && (
                     <button
                       type="button"
                       onClick={() => setSelectedEmpresaId(null)}
-                      className="text-[12px] text-ink-3 hover:text-ink-2 transition-colors duration-150 shrink-0"
+                      className="text-[13px] text-[#6B7280] hover:text-[#374151] transition-colors duration-150 shrink-0"
+                      style={OF}
                     >
                       Cambiar
                     </button>
                   )}
                 </div>
-              ) : elegibles.length === 0 ? (
-                <p className="text-[13px] text-ink-3">
-                  No hay empresas con score ≥ 40 para este pliego.{' '}
+              ) : comparaciones.length === 0 ? (
+                <p className="text-[14px] text-[#6B7280]" style={OF}>
+                  No hay empresas comparadas para este pliego.{' '}
                   <Link href={`/dashboard/pliegos/${id}`} className="text-terracotta hover:text-terracotta-hover transition-colors duration-150">
                     Volver al pliego
                   </Link>
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[12px] text-ink-3 mb-3">
+                  <p className="text-[13px] text-[#6B7280] mb-3" style={OF}>
                     Selecciona la empresa para la que deseas generar los anexos.
                   </p>
-                  {elegibles.map((c) => (
+                  {comparaciones.map((c) => (
                     <button
                       key={c.empresa_id}
                       type="button"
-                      onClick={() => setSelectedEmpresaId(c.empresa_id)}
+                      onClick={() => handleSelectEmpresa(c.empresa_id)}
                       className="w-full flex items-center gap-3 p-3.5 rounded-[12px] bg-surface border border-border-subtle hover:border-border hover:bg-surface-2 transition-colors duration-150 text-left"
                     >
-                      <div className="w-9 h-9 rounded-full bg-terracotta-dim flex items-center justify-center shrink-0">
-                        <span className="text-[12px] font-semibold text-terracotta select-none">
+                      <div className="w-9 h-9 rounded-[8px] bg-[#F3F4F6] flex items-center justify-center shrink-0">
+                        <span style={{ ...OF, fontWeight: 700, fontSize: 12, color: '#374151', lineHeight: 1 }}>
                           {c.empresa_nombre.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-ink truncate">{c.empresa_nombre}</p>
-                        <p className="text-[11px] text-ink-3 font-mono">{c.nit}</p>
+                        <p className="text-[14px] text-[#111827] truncate" style={{ ...OF, fontWeight: 600 }}>{c.empresa_nombre}</p>
+                        <p className="text-[12px] text-[#6B7280] date-caption">{c.nit}</p>
                       </div>
+                      <RecomendacionBadge score={c.score} />
                       <ScoreBadge score={c.score} />
                     </button>
                   ))}
@@ -496,10 +546,10 @@ function AnexosContent() {
               )}
             </section>
 
-            {/* Plantillas de la entidad */}
+            {/* Plantillas */}
             <section className="rounded-[16px] border border-border-subtle p-6">
-              <h2 className="text-[14px] font-semibold text-ink mb-1">Plantillas de la entidad</h2>
-              <p className="text-[12px] text-ink-3 mb-4">
+              <h2 className="text-[15px] text-[#111827] mb-1" style={{ ...OF, fontWeight: 600 }}>Plantillas de la entidad</h2>
+              <p className="text-[13px] text-[#6B7280] mb-4" style={OF}>
                 Generalmente los pliegos incluyen formatos numerados (Formato 1, Formato 2...). Sube los que correspondan a esta empresa.
               </p>
               <DropZone
@@ -511,20 +561,19 @@ function AnexosContent() {
               />
             </section>
 
-            {/* Error */}
             {generateError && (
-              <div className="px-4 py-3 rounded-[10px] bg-terracotta-dim border border-terracotta/20 text-[13px] text-terracotta">
+              <div className="px-4 py-3 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20 text-[14px] text-[#DC2626]" style={OF}>
                 {generateError}
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex items-center gap-3 pb-4">
               <button
                 type="button"
                 onClick={handleGenerar}
                 disabled={!canGenerar}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-[14px] bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ ...OF, fontWeight: 600 }}
               >
                 {isGenerating ? (
                   <>
@@ -537,7 +586,8 @@ function AnexosContent() {
               </button>
               <Link
                 href={`/dashboard/pliegos/${id}`}
-                className="px-4 py-2.5 rounded-[10px] text-[13px] text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors duration-150"
+                className="px-4 py-2.5 rounded-[10px] text-[14px] text-[#374151] hover:text-[#111827] hover:bg-surface-2 transition-colors duration-150"
+                style={OF}
               >
                 Cancelar
               </Link>
@@ -552,7 +602,7 @@ function AnexosContent() {
 }
 
 // ---------------------------------------------------------------------------
-// Page export — wraps content in Suspense (required for useSearchParams)
+// Page export
 // ---------------------------------------------------------------------------
 
 export default function AnexosPage() {

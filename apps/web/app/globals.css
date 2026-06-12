@@ -1,52 +1,109 @@
 @import "tailwindcss";
 
 @theme {
-  /* Surfaces */
-  --color-bg: oklch(0.115 0.012 50);
-  --color-surface: oklch(0.158 0.010 50);
-  --color-surface-2: oklch(0.205 0.009 50);
+  /* Background layers */
+  --color-bg: oklch(0.09 0.012 55);
+  --color-surface: oklch(0.13 0.010 55);
+  --color-surface-2: oklch(0.17 0.009 55);
+  --color-surface-3: oklch(0.21 0.008 55);
 
   /* Borders */
-  --color-border: oklch(0.265 0.008 50);
-  --color-border-subtle: oklch(0.185 0.007 50);
+  --color-border: oklch(0.28 0.008 55);
+  --color-border-subtle: oklch(0.19 0.007 55);
 
   /* Text */
-  --color-ink: oklch(0.920 0.005 50);
-  --color-ink-2: oklch(0.600 0.007 50);
-  --color-ink-3: oklch(0.385 0.005 50);
+  --color-ink: oklch(0.95 0.005 55);
+  --color-ink-2: oklch(0.62 0.007 55);
+  --color-ink-3: oklch(0.40 0.005 55);
 
-  /* Terracotta — primary accent */
-  --color-terracotta: oklch(0.575 0.135 32);
-  --color-terracotta-hover: oklch(0.625 0.135 32);
-  --color-terracotta-dim: oklch(0.575 0.135 32 / 0.14);
+  /* Brand: Terracotta */
+  --color-terracotta: oklch(0.58 0.135 32);
+  --color-terracotta-hover: oklch(0.63 0.135 32);
+  --color-terracotta-dim: oklch(0.58 0.135 32 / 0.14);
+  --color-terracotta-glow: oklch(0.58 0.135 32 / 0.30);
 
-  /* Ochre — high scores, data highlights */
-  --color-ochre: oklch(0.742 0.130 76);
-  --color-ochre-dim: oklch(0.742 0.130 76 / 0.14);
+  /* Brand: Ochre */
+  --color-ochre: oklch(0.75 0.130 76);
+  --color-ochre-dim: oklch(0.75 0.130 76 / 0.14);
 
-  /* Amber — mid scores */
-  --color-amber: oklch(0.742 0.115 63);
-  --color-amber-dim: oklch(0.742 0.115 63 / 0.14);
+  /* Brand: Amber */
+  --color-amber: oklch(0.74 0.115 63);
+  --color-amber-dim: oklch(0.74 0.115 63 / 0.14);
 
-  /* Navigation */
-  --color-nav-hover: oklch(0.175 0.010 50);
+  /* Status */
+  --color-success: oklch(0.70 0.15 145);
+  --color-success-dim: oklch(0.70 0.15 145 / 0.14);
 
-  /* Typography */
+  /* Nav */
+  --color-nav-hover: oklch(0.13 0.009 55);
+
+  /* Fonts */
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
 }
 
+
 @layer base {
   html {
-    background-color: oklch(0.115 0.012 50);
-    color: oklch(0.920 0.005 50);
+    background-color: #F4F6F8;
+    color: oklch(0.95 0.005 55);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: #F4F6F8;
+    overflow-x: hidden;
   }
 
   ::selection {
-    background: oklch(0.575 0.135 32 / 0.25);
+    background: oklch(0.58 0.135 32 / 0.30);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Animations                                                           */
+/* ------------------------------------------------------------------ */
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -56,4 +113,53 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Dashboard — light theme variable overrides                           */
+/* ------------------------------------------------------------------ */
+
+.dashboard-root {
+  --color-bg: #F4F6F8;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F3F4F6;
+  --color-surface-3: #F4F6F8;
+  --color-border: #E8ECF0;
+  --color-border-subtle: #F0F4F8;
+  --color-ink: #111827;
+  --color-ink-2: #374151;
+  --color-ink-3: #6B7280;
+  --color-terracotta: #E8593C;
+  --color-terracotta-hover: #D44A2D;
+  --color-terracotta-dim: #FEF0ED;
+  --color-terracotta-glow: rgba(232, 89, 60, 0.15);
+  --color-ochre: #D97706;
+  --color-ochre-dim: #FEF9C3;
+  --color-amber: #854D0E;
+  --color-amber-dim: #FEF9C3;
+  --color-success: #15803D;
+  --color-success-dim: #DCFCE7;
+  --color-nav-hover: #F9FAFB;
+  --font-sans: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  background-color: #F4F6F8;
+  color: #111827;
+  min-height: 100dvh;
+}
+
+/* Prevenir overflow horizontal en dashboard */
+.dashboard-main {
+  overflow-x: hidden;
+  width: 100%;
+  background-color: #F4F6F8;
+}
+
+/* Fechas y captions en todo el dashboard */
+.dashboard-main time,
+.dashboard-main .date-caption {
+  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  color: #6B7280;
+  letter-spacing: 0;
+  font-feature-settings: normal;
 }
