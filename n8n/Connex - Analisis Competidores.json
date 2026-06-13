@@ -145,7 +145,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE licitacion_fases SET estado = 'error', updated_at = NOW() WHERE id = '{{ $('Code - Build Claude Request').item.json.faseId }}'",
+        "query": "UPDATE licitacion_fases SET estado = 'error', updated_at = NOW() WHERE id = '{{ $('Code - Build Claude Request').item.json.faseId }}'\n  AND (analisis_claude IS NULL OR analisis_claude->'general' IS NULL)",
         "options": {}
       },
       "id": "d1b2c3d4-0008-4000-8000-000000000008",

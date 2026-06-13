@@ -366,7 +366,7 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
     )
   }
 
-  if (fase.estado === 'error') {
+  if (fase.estado === 'error' && !hayGeneral) {
     return (
       <div className="flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20">
         <span className="text-[13px] text-[#DC2626]" style={OF}>Error en el análisis</span>

@@ -159,7 +159,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE licitacion_fases SET estado = 'error', updated_at = NOW() WHERE id = '{{ $('Webhook pliego-definitivo-empresa').item.json.body.faseId }}'",
+        "query": "UPDATE licitacion_fases SET estado = 'error', updated_at = NOW() WHERE id = '{{ $('Webhook pliego-definitivo-empresa').item.json.body.faseId }}'\n  AND (analisis_claude IS NULL OR analisis_claude->'por_empresa' IS NULL)",
         "options": {}
       },
       "id": "c1b2c3d4-0009-4000-8000-000000000009",
