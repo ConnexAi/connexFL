@@ -252,17 +252,9 @@ licitacionesRouter.post('/:id/fases', async (c) => {
           documentosBase64: documentos,
           licitacion,
         })
-      } else {
-        dispatchWebhook('fase-analisis', {
-          faseId,
-          licitacionId,
-          tipoFase,
-          version,
-          abogadoId: abogado.rows[0].id,
-          documentosBase64: documentos,
-          licitacion,
-        })
       }
+      // tipoFase='anexos' y cualquier otro: no disparan webhook —
+      // los anexos se generan a través de la página de anexos (POST /api/anexos/generar)
     }
 
     return c.json(fase.rows[0], 201)
