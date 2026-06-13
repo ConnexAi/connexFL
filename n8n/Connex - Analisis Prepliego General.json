@@ -11,7 +11,10 @@
       "name": "Webhook prepliego-general",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "a1b2c3d4-0001-4000-8000-000000000001"
     },
     {
@@ -24,7 +27,10 @@
       "name": "Postgres - Obtener empresas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [240, 0],
+      "position": [
+        240,
+        0
+      ],
       "credentials": {
         "postgres": {
           "id": "ybgyfY5MFJBJf74R",
@@ -34,13 +40,16 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhookData = $('Webhook prepliego-general').item.json.body;\nconst empresas = $('Postgres - Obtener empresas').all().map(e => e.json);\nconst documentosBase64 = webhookData.documentosBase64 || [];\nconst licitacion = webhookData.licitacion || {};\n\nconst systemPrompt = 'Eres un experto juridico en contratacion publica colombiana (SECOP II). Analiza el borrador del pliego / estudio previo adjunto y devuelve UNICAMENTE un JSON valido (sin markdown) con la siguiente estructura exacta: {\"resumen_ejecutivo\":\"string\",\"requisitos_habilitantes\":{\"juridico\":[\"string\"],\"financiero\":[\"string\"],\"tecnico\":[\"string\"],\"experiencia\":[\"string\"]},\"criterios_ponderacion\":[{\"criterio\":\"string\",\"peso\":0}],\"fechas_clave\":[{\"fecha\":\"string\",\"evento\":\"string\"}],\"cascaritas\":[{\"descripcion\":\"string\",\"ubicacion\":\"string\"}],\"empresas_candidatas\":[{\"empresa_id\":\"string\",\"nombre_empresa\":\"string\",\"afinidad_resumen\":\"string\"}]}';\n\nconst empresasTexto = empresas.length > 0\n  ? empresas.map(e => {\n      const perfil = e.contexto_procesado ? JSON.stringify(e.contexto_procesado) : 'Sin perfil';\n      return 'ID: ' + e.id + ' | ' + e.nombre + ' | ' + (e.sector || 'N/A') + '\\n' + perfil;\n    }).join('\\n---\\n')\n  : 'Sin empresas disponibles.';\n\nconst userText = 'Licitacion: ' + (licitacion.nombre || '') + (licitacion.secop_id ? ' (SECOP: ' + licitacion.secop_id + ')' : '') + '\\n\\nEMPRESAS DISPONIBLES (candidatas al pre-pliego):\\n' + empresasTexto + '\\n\\nA continuacion se adjuntan los documentos del pre-pliego.';\n\nconst contentBlocks = [{ type: 'text', text: userText }];\nfor (const doc of documentosBase64) {\n  contentBlocks.push({\n    type: 'document',\n    source: { type: 'base64', media_type: doc.mediaType, data: doc.base64 },\n    title: doc.nombre\n  });\n}\nif (documentosBase64.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Nota: No se adjuntaron documentos.' });\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 4096,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{ json: { faseId: webhookData.faseId, claudeBody: JSON.stringify(requestBody) } }];"
+        "jsCode": "const webhookData = $('Webhook prepliego-general').item.json.body;\nconst empresas = $('Postgres - Obtener empresas').all().map(e => e.json);\nconst documentosBase64 = webhookData.documentosBase64 || [];\n// Leer resumen extraído por Haiku\nconst haikuResponse = $('Claude Haiku - Extraer documentos').item.json;\nlet resumenDocumentos = 'Sin documentos adjuntos.';\nif (haikuResponse.content && haikuResponse.content[0] && haikuResponse.content[0].text) {\n  resumenDocumentos = haikuResponse.content[0].text.trim() || 'Sin contenido extraíble.';\n}\nif (haikuResponse.stop_reason === 'max_tokens') {\n  resumenDocumentos = '[ADVERTENCIA: resumen de documentos truncado — Haiku alcanzó max_tokens]\\n' + resumenDocumentos;\n}\n\n\nconst licitacion = webhookData.licitacion || {};\n\nconst systemPrompt = 'Eres un experto juridico en contratacion publica colombiana (SECOP II). Analiza el borrador del pliego / estudio previo adjunto y devuelve UNICAMENTE un JSON valido (sin markdown) con la siguiente estructura exacta: {\"resumen_ejecutivo\":\"string\",\"requisitos_habilitantes\":{\"juridico\":[\"string\"],\"financiero\":[\"string\"],\"tecnico\":[\"string\"],\"experiencia\":[\"string\"]},\"criterios_ponderacion\":[{\"criterio\":\"string\",\"peso\":0}],\"fechas_clave\":[{\"fecha\":\"string\",\"evento\":\"string\"}],\"cascaritas\":[{\"descripcion\":\"string\",\"ubicacion\":\"string\"}],\"empresas_candidatas\":[{\"empresa_id\":\"string\",\"nombre_empresa\":\"string\",\"afinidad_resumen\":\"string\"}]}';\n\nconst empresasTexto = empresas.length > 0\n  ? empresas.map(e => {\n      const perfil = e.contexto_procesado ? JSON.stringify(e.contexto_procesado) : 'Sin perfil';\n      return 'ID: ' + e.id + ' | ' + e.nombre + ' | ' + (e.sector || 'N/A') + '\\n' + perfil;\n    }).join('\\n---\\n')\n  : 'Sin empresas disponibles.';\n\nconst userText = 'Licitacion: ' + (licitacion.nombre || '') + (licitacion.secop_id ? ' (SECOP: ' + licitacion.secop_id + ')' : '') + '\\n\\nEMPRESAS DISPONIBLES (candidatas al pre-pliego):\\n' + empresasTexto + '\\n\\nA continuacion se adjuntan los documentos del pre-pliego.';\n\n// Documentos resumidos por Haiku — no se envían en base64 a Sonnet);\n}\n\nconst requestBody = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 8192,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: [{ type: 'text', text: userText + '\n\n=== RESUMEN DE DOCUMENTOS (extraído por IA) ===\n' + resumenDocumentos }] }]\n};\n\nreturn [{ json: { faseId: webhookData.faseId, claudeBody: JSON.stringify(requestBody) } }];"
       },
       "id": "a1b2c3d4-0003-4000-8000-000000000003",
       "name": "Code - Build Claude Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 0]
+      "position": [
+        480,
+        0
+      ]
     },
     {
       "parameters": {
@@ -49,9 +58,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
@@ -64,17 +82,23 @@
       "name": "Claude API - Analisis general",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [720, 0]
+      "position": [
+        720,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const response = $('Claude API - Analisis general').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet rawText = '';\nif (response.content && response.content[0] && response.content[0].text) {\n  rawText = response.content[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(rawText);\n} catch(e) {\n  parsed = { error: 'respuesta_no_valida', raw: rawText.substring(0, 500) };\n}\n\nreturn [{ json: { faseId: buildData.faseId, resultado: JSON.stringify(parsed) } }];"
+        "jsCode": "// FIX: respuesta truncada por max_tokens → marcar error\nif ($('Claude API - Analisis general').item.json.stop_reason === 'max_tokens') {\n  const faseId = $('Code - Build Claude Request').item.json.faseId;\n  const empresaId = $('Code - Build Claude Request').item.json.empresaId;\n  const pliegoId = $('Code - Build Claude Request').item.json.pliegoId;\n  return [{ json: {\n    ...(faseId ? { faseId } : {}),\n    ...(empresaId ? { empresaId } : {}),\n    ...(pliegoId ? { pliegoId } : {}),\n    empresasIds: $('Code - Build Claude Request').item.json.empresasIds,\n    resultado: JSON.stringify({ error: 'respuesta_incompleta', mensaje: 'Respuesta de IA truncada — documento demasiado extenso' }),\n    analisisPliego: JSON.stringify({ error: 'respuesta_incompleta' }),\n    comparaciones: [],\n    generalData: JSON.stringify({ error: 'respuesta_incompleta' }),\n    porEmpresa: JSON.stringify({})\n  } }];\n}\n\nconst response = $('Claude API - Analisis general').item.json;\nconst buildData = $('Code - Build Claude Request').item.json;\n\nlet rawText = '';\nif (response.content && response.content[0] && response.content[0].text) {\n  rawText = response.content[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim();\n}\n\nlet parsed = null;\ntry {\n  parsed = JSON.parse(rawText);\n} catch(e) {\n  parsed = { error: 'respuesta_no_valida', raw: rawText.substring(0, 500) };\n}\n\nreturn [{ json: { faseId: buildData.faseId, resultado: JSON.stringify(parsed) } }];"
       },
       "id": "a1b2c3d4-0005-4000-8000-000000000005",
       "name": "Code - Parsear respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 0]
+      "position": [
+        960,
+        0
+      ]
     },
     {
       "parameters": {
@@ -86,7 +110,10 @@
       "name": "Postgres - Guardar resultado",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1200, 0],
+      "position": [
+        1200,
+        0
+      ],
       "credentials": {
         "postgres": {
           "id": "ybgyfY5MFJBJf74R",
@@ -104,38 +131,164 @@
       "name": "Postgres - Marcar error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [960, 200],
+      "position": [
+        960,
+        200
+      ],
       "credentials": {
         "postgres": {
           "id": "ybgyfY5MFJBJf74R",
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "id": "0b852eb5-aabe-41a1-b259-9a08ab604bdd",
+      "name": "Code - Build Haiku Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        -250
+      ],
+      "parameters": {
+        "jsCode": "const webhookData = $('Webhook prepliego-general').item.json.body;\nconst documentosBase64 = webhookData.documentosBase64 || [];\n\nconst MAX_CHARS_PER_DOC = 80000;\n\nfunction truncateText(text, maxChars) {\n  if (!text || text.length <= maxChars) return text;\n  const front = text.substring(0, Math.floor(maxChars * 0.7));\n  const back = text.substring(text.length - Math.floor(maxChars * 0.25));\n  return front + '\\n...[OMITIDO: ' + (text.length - maxChars) + ' caracteres]...\\n' + back;\n}\n\nconst contentBlocks = [];\nfor (const doc of documentosBase64) {\n  if (doc.textoExtraido) {\n    contentBlocks.push({\n      type: 'text',\n      text: 'DOCUMENTO: ' + doc.nombre + '\\n\\n' + truncateText(doc.textoExtraido, MAX_CHARS_PER_DOC)\n    });\n  } else {\n    contentBlocks.push({\n      type: 'document',\n      source: { type: 'base64', media_type: doc.mediaType, data: doc.base64 },\n      title: doc.nombre\n    });\n  }\n}\nif (contentBlocks.length === 0) {\n  contentBlocks.push({ type: 'text', text: 'Sin documentos adjuntos.' });\n}\n\nconst haikuBody = {\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 4096,\n  system: 'Extrae y resume en máximo 500 palabras los puntos clave del documento adjunto: requisitos habilitantes (jurídico, financiero, técnico, experiencia), criterios de ponderación con sus pesos, fechas importantes, valores del contrato, alertas o cascaritas. Responde solo con el resumen estructurado.',\n  messages: [{ role: 'user', content: contentBlocks }]\n};\n\nreturn [{ json: { haikuBody: JSON.stringify(haikuBody) } }];"
+      }
+    },
+    {
+      "id": "b10127f4-d4ac-4021-9b3c-4472f3d24f64",
+      "name": "Claude Haiku - Extraer documentos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        230,
+        -250
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.haikuBody }}",
+        "options": {}
+      }
     }
   ],
   "pinData": {},
   "connections": {
     "Webhook prepliego-general": {
-      "main": [[{ "node": "Postgres - Obtener empresas", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Postgres - Obtener empresas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Postgres - Obtener empresas": {
-      "main": [[{ "node": "Code - Build Claude Request", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Code - Build Haiku Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Code - Build Claude Request": {
-      "main": [[{ "node": "Claude API - Analisis general", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude API - Analisis general",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude API - Analisis general": {
-      "main": [[{ "node": "Code - Parsear respuesta", "type": "main", "index": 0 }]],
-      "error": [[{ "node": "Postgres - Marcar error", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Code - Parsear respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Postgres - Marcar error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Code - Parsear respuesta": {
-      "main": [[{ "node": "Postgres - Guardar resultado", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Postgres - Guardar resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build Haiku Request": {
+      "main": [
+        [
+          {
+            "node": "Claude Haiku - Extraer documentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Haiku - Extraer documentos": {
+      "main": [
+        [
+          {
+            "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "versionId": "prepliego-general-v1",
-  "meta": { "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c" },
+  "meta": {
+    "instanceId": "bcf6b2f9534a5dd7f07e69c72a40b8984541b54d1b590dfdc07c0936f99a4d3c"
+  },
   "id": "ConnexPrepliegoGeneral01",
   "tags": []
 }

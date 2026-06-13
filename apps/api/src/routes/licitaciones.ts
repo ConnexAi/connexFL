@@ -168,6 +168,15 @@ licitacionesRouter.post('/:id/fases', async (c) => {
 
     if (!tipoFase) return c.json({ error: 'tipo_fase es requerido' }, 400)
 
+    // Idempotency: bloquear si ya hay una fase del mismo tipo en procesando
+    const procesandoCheck = await pool.query(
+      `SELECT id FROM licitacion_fases WHERE licitacion_id = $1 AND tipo_fase = $2 AND estado = 'procesando'`,
+      [licitacionId, tipoFase]
+    )
+    if (procesandoCheck.rows.length > 0) {
+      return c.json({ error: 'Ya hay un análisis en curso para esta fase. Espera a que finalice.', code: 'FASE_EN_PROCESAMIENTO' }, 409)
+    }
+
     // Auto-incrementar versión
     const versionRes = await pool.query(
       `SELECT COALESCE(MAX(version), 0) + 1 AS next_version
@@ -210,7 +219,7 @@ licitacionesRouter.post('/:id/fases', async (c) => {
 
     // --- Dispatch según tipoFase ---
     if (documentosPath.length > 0) {
-      const documentos = prepareDocumentsForClaude(documentosPath)
+      const documentos = await prepareDocumentsForClaude(documentosPath)
 
       if (tipoFase === 'prepliego') {
         dispatchWebhook('analisis-prepliego-general', {
@@ -290,7 +299,12 @@ licitacionesRouter.post('/:id/fases/:faseId/analizar-empresas', async (c) => {
     }
 
     const fase = faseRes.rows[0] as {
-      id: string; tipo_fase: string; documentos_path: string[] | null
+      id: string; tipo_fase: string; documentos_path: string[] | null; estado: string
+    }
+
+    // Idempotency: bloquear si la fase ya está siendo procesada
+    if (fase.estado === 'procesando') {
+      return c.json({ error: 'La fase ya está siendo procesada. Espera a que finalice.', code: 'FASE_EN_PROCESAMIENTO' }, 409)
     }
 
     // Para pliego_definitivo: marcar comparaciones como seleccionada=true
@@ -321,7 +335,7 @@ licitacionesRouter.post('/:id/fases/:faseId/analizar-empresas', async (c) => {
       ? 'analisis-pliego-definitivo-empresa'
       : 'analisis-prepliego-empresa'
 
-    const documentos = fase.documentos_path ? prepareDocumentsForClaude(fase.documentos_path) : []
+    const documentos = fase.documentos_path ? await prepareDocumentsForClaude(fase.documentos_path) : []
 
     dispatchWebhook(webhookPath, {
       faseId,

@@ -109,7 +109,7 @@ pliegosRouter.post('/', async (c) => {
       [pliegoId, abogadoId, nombre, secopId || null, archivosPath, licitacionId, faseId]
     )
 
-    const documentos = prepareDocumentsForClaude(archivosPath)
+    const documentos = await prepareDocumentsForClaude(archivosPath)
 
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     const webhookSecret = process.env.N8N_WEBHOOK_SECRET

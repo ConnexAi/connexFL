@@ -90,7 +90,7 @@ empresasRouter.post('/', async (c) => {
     }
 
     // Preparar documentos PDF en base64 para Claude
-    const documentos = prepareDocumentsForClaude(archivosPath)
+    const documentos = await prepareDocumentsForClaude(archivosPath)
 
     // Contexto: texto manual + lista de documentos subidos
     const contextoRaw = JSON.stringify({
@@ -177,7 +177,7 @@ empresasRouter.post('/:id/archivos', async (c) => {
     }
 
     const allPaths = [...existingPaths, ...newPaths]
-    const documentos = prepareDocumentsForClaude(allPaths)
+    const documentos = await prepareDocumentsForClaude(allPaths)
     const contextoRaw = JSON.stringify({
       descripcion: '',
       documentos: documentos.map(d => ({ nombre: d.nombre })),
