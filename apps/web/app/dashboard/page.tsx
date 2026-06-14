@@ -238,7 +238,7 @@ export default function DashboardPage() {
                 icon: <FileText size={20} color="#374151" />,
                 title: 'Sube un pliego del SECOP II',
                 desc: 'El sistema extrae requisitos, cruza con el perfil de cada empresa y calcula un score de 0 a 100.',
-                href: '/dashboard/pliegos/nuevo',
+                href: '/dashboard/licitaciones/nueva',
                 label: 'Subir pliego',
                 primary: true,
               },
@@ -312,7 +312,7 @@ export default function DashboardPage() {
             <section className="bg-surface rounded-xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
                 <h2 className="text-[18px] text-ink" style={{ ...OF, fontWeight: 600 }}>Pliegos recientes</h2>
-                <Link href="/dashboard/pliegos"
+                <Link href="/dashboard/licitaciones"
                   className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors"
                   style={{ ...OF, fontWeight: 600 }}>
                   Ver todos
@@ -321,7 +321,7 @@ export default function DashboardPage() {
               {recentPliegos.length === 0 ? (
                 <div className="px-6 py-8 text-center">
                   <p className="text-[14px] text-ink-3" style={OF}>Sin pliegos aún.</p>
-                  <Link href="/dashboard/pliegos/nuevo"
+                  <Link href="/dashboard/licitaciones/nueva"
                     className="inline-flex items-center gap-1.5 mt-4 text-[14px] text-terracotta hover:text-terracotta-hover transition-colors"
                     style={{ ...OF, fontWeight: 600 }}>
                     <Plus size={13} />

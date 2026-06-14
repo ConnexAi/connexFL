@@ -140,7 +140,7 @@ function PliegoCard({ group }: { group: PliegoGroup }) {
           className="flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg text-[13px] text-[#374151] border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] transition-colors"
           style={{ ...OF, fontWeight: 600 }}
         >
-          Ver pliego
+          Ver licitación
           <ChevronRight size={12} />
         </Link>
       </div>
@@ -279,7 +279,7 @@ export default function ComparacionesPage() {
               Analiza un pliego para ver el ranking de compatibilidad de tus empresas.
             </p>
             <Link
-              href="/dashboard/pliegos/nuevo"
+              href="/dashboard/licitaciones/nueva"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[14px] bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
               style={{ ...OF, fontWeight: 600 }}
             >

@@ -7,6 +7,7 @@ import type {
   AnexosEstado,
   LicitacionListItem,
   LicitacionDetail,
+  InformeEmpresa,
 } from './types'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -95,5 +96,10 @@ export const api = {
     delete: (id: string) => apiFetch<{ ok: boolean }>(`/api/licitaciones/${id}`, { method: 'DELETE' }),
     deleteFase: (id: string, faseId: string) =>
       apiFetch<{ ok: boolean }>(`/api/licitaciones/${id}/fases/${faseId}`, { method: 'DELETE' }),
+  },
+  informes: {
+    listEmpresas: () => apiFetch<InformeEmpresa[]>('/api/informes/empresas'),
+    downloadDocx: (empresaId: string, mes: string) =>
+      `${API_URL}/api/informes/empresas/${empresaId}/docx?mes=${encodeURIComponent(mes)}`,
   },
 }

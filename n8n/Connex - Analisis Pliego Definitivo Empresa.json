@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "body.empresaIds",
+        "fieldToSplitOut": "={{ $('Webhook pliego-definitivo-empresa').item.json.body.empresaIds }}",
         "options": {}
       },
       "id": "c1b2c3d4-0003-4000-8000-000000000003",

@@ -368,6 +368,9 @@ function AnexosContent() {
 
   const selectedEmpresa = comparaciones.find((c) => c.empresa_id === selectedEmpresaId)
   const pliegoNombre = pliego?.nombre ?? 'Pliego'
+  const licitacionHref = pliego?.licitacion_id
+    ? `/dashboard/licitaciones/${pliego.licitacion_id}`
+    : '/dashboard/licitaciones'
   const canGenerar = !!selectedEmpresaId && plantillas.length > 0 && !isGenerating
 
   const view: 'listo' | 'procesando' | 'form' =
@@ -388,16 +391,16 @@ function AnexosContent() {
       {/* Breadcrumb */}
       <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <Link
-          href="/dashboard/pliegos"
+          href="/dashboard/licitaciones"
           className="flex items-center gap-1 text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150 shrink-0"
           style={OF}
         >
           <IconBack />
-          Pliegos
+          Licitaciones
         </Link>
         <span className="text-[#E8ECF0]" aria-hidden="true">/</span>
         <Link
-          href={`/dashboard/pliegos/${id}`}
+          href={licitacionHref}
           className="text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150 truncate max-w-[180px]"
           style={OF}
         >
@@ -444,12 +447,12 @@ function AnexosContent() {
 
             <div className="pb-4">
               <Link
-                href={`/dashboard/pliegos/${id}`}
+                href={licitacionHref}
                 className="flex items-center gap-1 text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150"
                 style={OF}
               >
                 <IconBack />
-                Volver al pliego
+                Volver a la licitación
               </Link>
             </div>
           </div>
@@ -513,8 +516,8 @@ function AnexosContent() {
               ) : comparaciones.length === 0 ? (
                 <p className="text-[14px] text-[#6B7280]" style={OF}>
                   No hay empresas comparadas para este pliego.{' '}
-                  <Link href={`/dashboard/pliegos/${id}`} className="text-terracotta hover:text-terracotta-hover transition-colors duration-150">
-                    Volver al pliego
+                  <Link href={licitacionHref} className="text-terracotta hover:text-terracotta-hover transition-colors duration-150">
+                    Volver a la licitación
                   </Link>
                 </p>
               ) : (
@@ -585,7 +588,7 @@ function AnexosContent() {
                 )}
               </button>
               <Link
-                href={`/dashboard/pliegos/${id}`}
+                href={licitacionHref}
                 className="px-4 py-2.5 rounded-[10px] text-[14px] text-[#374151] hover:text-[#111827] hover:bg-surface-2 transition-colors duration-150"
                 style={OF}
               >

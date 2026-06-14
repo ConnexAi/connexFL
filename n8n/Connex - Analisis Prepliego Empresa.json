@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "body.empresaIds",
+        "fieldToSplitOut": "={{ $('Webhook prepliego-empresa').item.json.body.empresaIds }}",
         "options": {}
       },
       "id": "b1b2c3d4-0003-4000-8000-000000000003",

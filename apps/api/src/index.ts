@@ -15,6 +15,7 @@ import pliegosRouter from './routes/pliegos'
 import comparacionesRouter from './routes/comparaciones'
 import anexosRouter from './routes/anexos'
 import licitacionesRouter from './routes/licitaciones'
+import { informesRouter } from './routes/informes'
 
 const app = new Hono()
 
@@ -63,6 +64,9 @@ app.route('/api/anexos', anexosRouter)
 
 app.use('/api/licitaciones/*', authMiddleware)
 app.route('/api/licitaciones', licitacionesRouter)
+
+app.use('/api/informes/*', authMiddleware)
+app.route('/api/informes', informesRouter)
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 

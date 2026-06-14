@@ -156,6 +156,7 @@ export interface PliegoListItem {
 }
 
 export interface PliegoDetail extends PliegoListItem {
+  licitacion_id?: string | null
   archivos_path?: string[] | null
   analisis?: PliegoAnalisis | null
   empresas_compatibles?: EmpresaCompatible[]
@@ -209,4 +210,25 @@ export interface AnexoGenerado {
 export interface AnexosEstado {
   estado_anexos: string | null
   anexos_generados: AnexoGenerado[] | null
+}
+
+export interface InformeEvaluacion {
+  comparacion_id: string
+  pliego_id: string
+  licitacion_id: string | null
+  nombre_licitacion: string
+  score: number | null
+  created_at: string
+}
+
+export interface InformeEmpresa {
+  id: string
+  nombre: string
+  sector: string | null
+  nit: string | null
+  total_evaluadas: number
+  este_mes: number
+  mes_anterior: number
+  score_promedio: number | null
+  ultimas_evaluaciones: InformeEvaluacion[]
 }
