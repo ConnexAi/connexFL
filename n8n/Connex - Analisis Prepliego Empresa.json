@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "={{ $('Webhook prepliego-empresa').item.json.body.empresaIds }}",
+        "fieldToSplitOut": "empresaIds",
         "options": {}
       },
       "id": "b1b2c3d4-0003-4000-8000-000000000003",
@@ -225,6 +225,20 @@
         "body": "={{ $json.haikuBody }}",
         "options": {}
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Webhook prepliego-empresa').item.json.body;\nconst currentItem = $input.item.json;\nreturn [{\n  json: {\n    ...currentItem,\n    empresaIds: webhookData.empresaIds || [],\n    faseId: webhookData.faseId,\n    licitacionId: webhookData.licitacionId\n  }\n}];",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "a9f1e2b3-1001-4000-8000-111111111111",
+      "name": "Code - Extraer empresaIds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        0
+      ]
     }
   ],
   "pinData": {},
@@ -244,7 +258,7 @@
       "main": [
         [
           {
-            "node": "Split empresaIds",
+            "node": "Code - Extraer empresaIds",
             "type": "main",
             "index": 0
           }
@@ -331,6 +345,17 @@
         [
           {
             "node": "Code - Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extraer empresaIds": {
+      "main": [
+        [
+          {
+            "node": "Split empresaIds",
             "type": "main",
             "index": 0
           }
