@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type {
   LicitacionFase,
@@ -762,7 +763,16 @@ export default function LicitacionTimeline({
   onAgregarFase,
   onAnalyzarEmpresas,
 }: LicitacionTimelineProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [nodoCritico, setNodoCritico] = useState<TipoFase | null>(null)
+
+  useEffect(() => {
+    const faseParam = searchParams.get('fase')
+    if (faseParam && (['prepliego', 'pliego_definitivo', 'anexos', 'evaluacion_observaciones'] as string[]).includes(faseParam)) {
+      setNodoCritico(faseParam as TipoFase)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fasesDe = (tipo: TipoFase) =>
     fases.filter(f => f.tipo_fase === tipo).sort((a, b) => b.version - a.version)
@@ -795,7 +805,15 @@ export default function LicitacionTimeline({
     : null
 
   function handleClickNodo(tipo: TipoFase) {
-    setNodoCritico(prev => (prev === tipo ? null : tipo))
+    const next = nodoCritico === tipo ? null : tipo
+    setNodoCritico(next)
+    const params = new URLSearchParams(searchParams.toString())
+    if (next) {
+      params.set('fase', next)
+    } else {
+      params.delete('fase')
+    }
+    router.replace(`?${params.toString()}`, { scroll: false })
   }
 
   // Contenido del nodo expandido
