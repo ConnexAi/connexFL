@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
+import { FileCheck } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
+const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
+
 // ---------------------------------------------------------------------------
-// Document definitions — 10 documentos esenciales de Ximena
+// Document definitions with keyword matching
 // ---------------------------------------------------------------------------
 
 interface DocDef {
@@ -17,25 +20,32 @@ interface DocDef {
   label: string
   note?: string
   isImportant?: boolean
+  keywords: string[]
 }
 
-const ESSENTIAL_DOCS: DocDef[] = [
-  { id: 'camara_comercio', label: 'Certificado de existencia y representación legal', note: 'Cámara de Comercio' },
-  { id: 'cedula_representante', label: 'Cédula del representante legal y libreta militar' },
-  { id: 'contraloria', label: 'Antecedentes Contraloría' },
-  { id: 'procuraduria', label: 'Antecedentes Procuraduría' },
-  { id: 'judiciales', label: 'Antecedentes judiciales' },
-  { id: 'rut', label: 'RUT' },
-  { id: 'rup', label: 'RUP — Registro Único de Proponentes', note: 'Descárgalo desde Cámara de Comercio en PDF' },
-  { id: 'parafiscales', label: 'Certificado de parafiscales' },
-  { id: 'sg_sst', label: 'Certificado SG-SST', note: 'ARL y Ministerio de Trabajo' },
+const CATEGORIAS_DOCS: DocDef[] = [
+  { id: 'camara_comercio',    label: 'Certificado de existencia y representación legal', note: 'Cámara de Comercio',     keywords: ['camara', 'comercio', 'existencia', 'representacion'] },
+  { id: 'cedula_representante', label: 'Cédula del representante legal y libreta militar',                               keywords: ['cedula', 'cc_rep', 'libreta', 'rep_legal', 'representante'] },
+  { id: 'contraloria',        label: 'Antecedentes Contraloría',                                                        keywords: ['contraloria', 'fiscal'] },
+  { id: 'procuraduria',       label: 'Antecedentes Procuraduría',                                                       keywords: ['procuraduria', 'disciplinario'] },
+  { id: 'judiciales',         label: 'Antecedentes judiciales / RNMC',                                                  keywords: ['judicial', 'rnmc', 'policia', 'antecedente'] },
+  { id: 'rut',                label: 'RUT',                                                                              keywords: ['rut', 'tributario'] },
+  { id: 'rup',                label: 'RUP — Registro Único de Proponentes', note: 'Descárgalo desde Cámara de Comercio en PDF', keywords: ['rup', 'proponente'] },
+  { id: 'parafiscales',       label: 'Certificado de aportes parafiscales',                                             keywords: ['parafiscal', 'seguridad_social', 'aportes'] },
+  { id: 'sg_sst',             label: 'Certificado SG-SST',                  note: 'ARL y Ministerio de Trabajo',        keywords: ['sgsst', 'sg_sst', 'sst', 'salud', 'trabajo', 'arl'] },
+  { id: 'cuadro_experiencia', label: 'Cuadro de experiencia', note: 'Este documento define qué licitaciones puede ganar la empresa', isImportant: true, keywords: ['experiencia', 'cuadro', 'contratos'] },
 ]
 
-const CUADRO_EXPERIENCIA: DocDef = {
-  id: 'cuadro_experiencia',
-  label: 'Cuadro de experiencia',
-  note: 'Este documento define qué licitaciones puede ganar la empresa',
-  isImportant: true,
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function basename(path: string): string {
+  return path.split(/[/\\]/).pop() ?? path
+}
+
+function stripTimestamp(filename: string): string {
+  return filename.replace(/^\d+_/, '')
 }
 
 // ---------------------------------------------------------------------------
@@ -51,107 +61,129 @@ function IconBack() {
   )
 }
 
-function IconX() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-      stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-      <line x1="3" y1="3" x2="13" y2="13" /><line x1="13" y1="3" x2="3" y2="13" />
-    </svg>
-  )
-}
-
 // ---------------------------------------------------------------------------
-// DocumentSlot
+// DocumentSlotWithFeedback
 // ---------------------------------------------------------------------------
 
-function DocumentSlot({
+function DocumentSlotWithFeedback({
   doc,
-  file,
-  onChange,
+  pendingFile,
+  onPendingChange,
+  uploadedPaths = [],
 }: {
   doc: DocDef
-  file: File | null
-  onChange: (f: File | null) => void
+  pendingFile: File | null
+  onPendingChange: (f: File | null) => void
+  uploadedPaths?: string[]
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [showDropzone, setShowDropzone] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function pick(f: File | undefined) {
-    if (f) onChange(f)
+    if (f) { onPendingChange(f); setShowDropzone(false) }
   }
 
-  const loaded = file !== null
+  const isUploaded = uploadedPaths.length > 0
+  const hasPending = pendingFile !== null
+  const isActive = (isUploaded || hasPending) && !showDropzone
+
+  const mostRecentPath = uploadedPaths.length > 0
+    ? uploadedPaths.reduce((best, cur) => {
+        const tsA = parseInt(basename(best).split('_')[0] ?? '0') || 0
+        const tsB = parseInt(basename(cur).split('_')[0] ?? '0') || 0
+        return tsB > tsA ? cur : best
+      })
+    : null
+
+  const displayName = hasPending
+    ? pendingFile.name
+    : mostRecentPath
+      ? stripTimestamp(basename(mostRecentPath))
+      : ''
+
+  const extraCount = !hasPending ? Math.max(0, uploadedPaths.length - 1) : 0
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Subir: ${doc.label}`}
-      className={[
-        'rounded-[12px] border transition-colors duration-150 cursor-pointer select-none outline-none',
-        'focus-visible:ring-1 focus-visible:ring-terracotta',
-        loaded
-          ? 'border-ochre bg-ochre-dim'
-          : isDragging
-            ? 'border-terracotta bg-terracotta-dim'
-            : doc.isImportant
-              ? 'border-ochre/40 bg-surface hover:border-ochre/70'
-              : 'border-border-subtle bg-surface hover:border-border',
-      ].join(' ')}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
-      onDrop={(e) => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf"
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(e) => pick(e.target.files?.[0])}
-        onClick={(e) => e.stopPropagation()}
-      />
+    <div className="space-y-1.5">
+      {/* Label */}
+      <div className="flex items-center gap-2">
+        <p className="flex-1 text-[14px] text-ink-2 leading-snug" style={{ ...OF, fontWeight: 500 }}>
+          {doc.label}
+        </p>
+        {doc.isImportant && (
+          <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-ochre-dim text-ochre text-[10px] font-semibold whitespace-nowrap shrink-0">
+            Clave
+          </span>
+        )}
+      </div>
 
-      <div className="p-3.5 min-h-[82px] flex flex-col justify-between gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <p className={`text-[12px] font-medium leading-snug ${loaded ? 'text-ochre' : 'text-ink-2'}`}>
-            {doc.label}
-          </p>
-          <div className="shrink-0 mt-0.5">
-            {loaded ? (
+      {isActive ? (
+        /* Green "uploaded / staged" row */
+        <div className="flex items-center gap-3 px-3.5 rounded-[8px]" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', padding: '10px 14px' }}>
+          <FileCheck size={14} color="#059669" className="shrink-0" />
+          <span className="flex-1 min-w-0 text-[13px] text-[#374151] truncate" style={{ ...OF, fontWeight: 500 }}>
+            {displayName}
+            {extraCount > 0 && (
+              <span className="ml-1.5 text-[#059669] text-[12px]">(+{extraCount} más)</span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => { setShowDropzone(true); onPendingChange(null) }}
+            className="text-[12px] font-medium shrink-0 hover:opacity-75 transition-opacity duration-150"
+            style={{ ...OF, color: '#E8593C' }}
+          >
+            Actualizar
+          </button>
+        </div>
+      ) : (
+        /* Drop-zone compacto */
+        <div>
+          {showDropzone && (
+            <div className="flex justify-end mb-1">
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onChange(null) }}
-                className="text-ochre hover:opacity-60 transition-opacity duration-100"
-                aria-label="Quitar archivo"
+                onClick={() => setShowDropzone(false)}
+                className="text-[11px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
+                style={OF}
               >
-                <IconX />
+                Cancelar
               </button>
-            ) : doc.isImportant ? (
-              <span className="inline-flex items-center h-4 px-2 rounded-full bg-ochre-dim text-ochre text-[10px] font-semibold whitespace-nowrap">
-                Más importante
-              </span>
-            ) : null}
+            </div>
+          )}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Subir: ${doc.label}`}
+            className={[
+              'h-[60px] flex items-center justify-center rounded-[8px] border-2 border-dashed cursor-pointer',
+              'transition-colors duration-150 select-none outline-none focus-visible:ring-1 focus-visible:ring-terracotta',
+              isDragging
+                ? 'border-terracotta bg-terracotta-dim'
+                : 'border-[#D1D5DB] bg-[#F9FAFB] hover:border-[#9CA3AF]',
+            ].join(' ')}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pdf,.doc,.docx"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(e) => pick(e.target.files?.[0])}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-[12px] text-[#9CA3AF]" style={OF}>
+              {isDragging ? 'Suelta aquí' : 'Arrastra o haz clic para subir'}
+            </p>
           </div>
         </div>
-
-        <div>
-          {loaded ? (
-            <p className="text-[11px] text-ochre/70 truncate font-mono">{file.name}</p>
-          ) : (
-            <>
-              {doc.note && (
-                <p className="text-[11px] text-ink-3 leading-snug mb-1">{doc.note}</p>
-              )}
-              <p className="text-[11px] text-ink-3">
-                {isDragging ? 'Suelta aquí' : 'Arrastra o haz clic · PDF'}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -208,7 +240,7 @@ function Input({ id, value, onChange, placeholder, hasError }: {
 // ---------------------------------------------------------------------------
 
 const INITIAL_FILES: Record<string, File | null> = Object.fromEntries(
-  [...ESSENTIAL_DOCS, CUADRO_EXPERIENCIA].map((d) => [d.id, null])
+  CATEGORIAS_DOCS.map((d) => [d.id, null])
 )
 
 export default function NuevaEmpresaPage() {
@@ -218,13 +250,13 @@ export default function NuevaEmpresaPage() {
   const [nombre, setNombre] = useState('')
   const [nit, setNit] = useState('')
   const [sector, setSector] = useState('')
-  const [essentialFiles, setEssentialFiles] = useState<Record<string, File | null>>(INITIAL_FILES)
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File | null>>(INITIAL_FILES)
   const [optionalFiles, setOptionalFiles] = useState<File[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const loadedCount = Object.values(essentialFiles).filter(Boolean).length
+  const loadedCount = Object.values(pendingFiles).filter(Boolean).length
 
   useEffect(() => {
     if (!sessionPending && !session) router.push('/login')
@@ -242,7 +274,7 @@ export default function NuevaEmpresaPage() {
   }
 
   function setFile(docId: string, f: File | null) {
-    setEssentialFiles((prev) => ({ ...prev, [docId]: f }))
+    setPendingFiles((prev) => ({ ...prev, [docId]: f }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -258,9 +290,8 @@ export default function NuevaEmpresaPage() {
     if (sector.trim()) formData.append('sector', sector.trim())
 
     let idx = 0
-    const allDocs = [...ESSENTIAL_DOCS, CUADRO_EXPERIENCIA]
-    allDocs.forEach((doc) => {
-      const f = essentialFiles[doc.id]
+    CATEGORIAS_DOCS.forEach((doc) => {
+      const f = pendingFiles[doc.id]
       if (f) {
         formData.append('archivos', f)
         formData.append(`tipo_documento_${idx}`, doc.id)
@@ -293,8 +324,11 @@ export default function NuevaEmpresaPage() {
   const submitLabel = isSubmitting
     ? 'Creando empresa...'
     : loadedCount > 0
-      ? `Crear empresa · ${loadedCount}/10 documentos`
+      ? `Crear empresa · ${loadedCount}/${CATEGORIAS_DOCS.length} documentos`
       : 'Crear empresa'
+
+  const mainDocs = CATEGORIAS_DOCS.slice(0, 9)
+  const highlightDoc = CATEGORIAS_DOCS[9]!
 
   return (
     <>
@@ -350,38 +384,38 @@ export default function NuevaEmpresaPage() {
 
           {/* Documentos esenciales */}
           <section>
-            <div className="flex items-baseline justify-between mb-4">
+            <div className="flex items-baseline justify-between mb-5">
               <div>
                 <h2 className="text-[14px] font-semibold text-ink">Documentos esenciales</h2>
                 <p className="text-[12px] text-ink-3 mt-0.5">
-                  Solo PDF. Sube los que tengas — puedes completarlos después.
+                  Sube los que tengas — puedes completarlos después.
                 </p>
               </div>
               {loadedCount > 0 && (
                 <span className="text-[12px] font-mono tabular-nums text-ochre">
-                  {loadedCount}/10
+                  {loadedCount}/{CATEGORIAS_DOCS.length}
                 </span>
               )}
             </div>
 
-            {/* Grid 2 columnas — primeros 9 documentos */}
-            <div className="grid grid-cols-2 gap-3">
-              {ESSENTIAL_DOCS.map((doc) => (
-                <DocumentSlot
+            {/* Grid 2 columnas — primeros 9 */}
+            <div className="grid grid-cols-2 gap-4">
+              {mainDocs.map((doc) => (
+                <DocumentSlotWithFeedback
                   key={doc.id}
                   doc={doc}
-                  file={essentialFiles[doc.id] ?? null}
-                  onChange={(f) => setFile(doc.id, f)}
+                  pendingFile={pendingFiles[doc.id] ?? null}
+                  onPendingChange={(f) => setFile(doc.id, f)}
                 />
               ))}
             </div>
 
             {/* Cuadro de experiencia — ancho completo, destacado */}
-            <div className="mt-3">
-              <DocumentSlot
-                doc={CUADRO_EXPERIENCIA}
-                file={essentialFiles[CUADRO_EXPERIENCIA.id] ?? null}
-                onChange={(f) => setFile(CUADRO_EXPERIENCIA.id, f)}
+            <div className="mt-4">
+              <DocumentSlotWithFeedback
+                doc={highlightDoc}
+                pendingFile={pendingFiles[highlightDoc.id] ?? null}
+                onPendingChange={(f) => setFile(highlightDoc.id, f)}
               />
             </div>
           </section>

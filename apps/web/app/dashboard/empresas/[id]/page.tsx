@@ -6,12 +6,13 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { DropZone } from '@/components/ui/drop-zone'
 import type { AnalisisEmpresa, EmpresaDetail, EstadoEmpresa } from '@/lib/types'
-import { ChevronLeft, FileText, X, Download } from 'lucide-react'
+import { ChevronLeft, FileCheck, Download } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
 
 // ---------------------------------------------------------------------------
-// Document definitions
+// Document definitions with keyword matching
 // ---------------------------------------------------------------------------
 
 interface DocDef {
@@ -19,29 +20,23 @@ interface DocDef {
   label: string
   note?: string
   isImportant?: boolean
+  keywords: string[]
 }
 
-const ESSENTIAL_DOCS: DocDef[] = [
-  { id: 'camara_comercio', label: 'Certificado de existencia y representación legal', note: 'Cámara de Comercio' },
-  { id: 'cedula_representante', label: 'Cédula del representante legal y libreta militar' },
-  { id: 'contraloria', label: 'Antecedentes Contraloría' },
-  { id: 'procuraduria', label: 'Antecedentes Procuraduría' },
-  { id: 'judiciales', label: 'Antecedentes judiciales' },
-  { id: 'rut', label: 'RUT' },
-  { id: 'rup', label: 'RUP — Registro Único de Proponentes', note: 'Descárgalo desde Cámara de Comercio en PDF' },
-  { id: 'parafiscales', label: 'Certificado de parafiscales' },
-  { id: 'sg_sst', label: 'Certificado SG-SST', note: 'ARL y Ministerio de Trabajo' },
+const CATEGORIAS_DOCS: DocDef[] = [
+  { id: 'camara_comercio',    label: 'Certificado de existencia y representación legal', note: 'Cámara de Comercio',     keywords: ['camara', 'comercio', 'existencia', 'representacion'] },
+  { id: 'cedula_representante', label: 'Cédula del representante legal y libreta militar',                               keywords: ['cedula', 'cc_rep', 'libreta', 'rep_legal', 'representante'] },
+  { id: 'contraloria',        label: 'Antecedentes Contraloría',                                                        keywords: ['contraloria', 'fiscal'] },
+  { id: 'procuraduria',       label: 'Antecedentes Procuraduría',                                                       keywords: ['procuraduria', 'disciplinario'] },
+  { id: 'judiciales',         label: 'Antecedentes judiciales / RNMC',                                                  keywords: ['judicial', 'rnmc', 'policia', 'antecedente'] },
+  { id: 'rut',                label: 'RUT',                                                                              keywords: ['rut', 'tributario'] },
+  { id: 'rup',                label: 'RUP — Registro Único de Proponentes', note: 'Descárgalo desde Cámara de Comercio en PDF', keywords: ['rup', 'proponente'] },
+  { id: 'parafiscales',       label: 'Certificado de aportes parafiscales',                                             keywords: ['parafiscal', 'seguridad_social', 'aportes'] },
+  { id: 'sg_sst',             label: 'Certificado SG-SST',                  note: 'ARL y Ministerio de Trabajo',        keywords: ['sgsst', 'sg_sst', 'sst', 'salud', 'trabajo', 'arl'] },
+  { id: 'cuadro_experiencia', label: 'Cuadro de experiencia', note: 'Define qué licitaciones puede ganar la empresa', isImportant: true, keywords: ['experiencia', 'cuadro', 'contratos'] },
 ]
 
-const CUADRO_EXPERIENCIA: DocDef = {
-  id: 'cuadro_experiencia',
-  label: 'Cuadro de experiencia',
-  note: 'Define qué licitaciones puede ganar la empresa',
-  isImportant: true,
-}
-
-const ALL_DOCS = [...ESSENTIAL_DOCS, CUADRO_EXPERIENCIA]
-const INITIAL_PENDING: Record<string, File | null> = Object.fromEntries(ALL_DOCS.map((d) => [d.id, null]))
+const INITIAL_PENDING: Record<string, File | null> = Object.fromEntries(CATEGORIAS_DOCS.map((d) => [d.id, null]))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +50,18 @@ function basename(path: string): string {
   return path.split(/[/\\]/).pop() ?? path
 }
 
+function stripTimestamp(filename: string): string {
+  return filename.replace(/^\d+_/, '')
+}
+
+function matchCategoria(archivoPath: string, keywords: string[]): boolean {
+  if (keywords.length === 0) return false
+  const filename = basename(archivoPath)
+  const withoutTs = filename.replace(/^\d+_/, '')
+  const normalized = withoutTs.toLowerCase().replace(/[\s\-.]/g, '_')
+  return keywords.some(kw => normalized.includes(kw))
+}
+
 const estadoMap: Record<EstadoEmpresa, { label: string; cls: string }> = {
   pendiente:  { label: 'Pendiente',  cls: 'bg-surface-2 text-ink-3' },
   procesando: { label: 'Procesando', cls: 'bg-amber-dim text-amber' },
@@ -63,77 +70,128 @@ const estadoMap: Record<EstadoEmpresa, { label: string; cls: string }> = {
 }
 
 // ---------------------------------------------------------------------------
-// DocumentSlot
+// DocumentSlotWithFeedback
 // ---------------------------------------------------------------------------
 
-function DocumentSlot({
+function DocumentSlotWithFeedback({
   doc,
-  file,
-  onChange,
+  pendingFile,
+  onPendingChange,
+  uploadedPaths = [],
 }: {
   doc: DocDef
-  file: File | null
-  onChange: (f: File | null) => void
+  pendingFile: File | null
+  onPendingChange: (f: File | null) => void
+  uploadedPaths?: string[]
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [showDropzone, setShowDropzone] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const loaded = file !== null
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  function pick(f: File | undefined) { if (f) onChange(f) }
+  function pick(f: File | undefined) {
+    if (f) { onPendingChange(f); setShowDropzone(false) }
+  }
+
+  const isUploaded = uploadedPaths.length > 0
+  const hasPending = pendingFile !== null
+  const isActive = (isUploaded || hasPending) && !showDropzone
+
+  const mostRecentPath = uploadedPaths.length > 0
+    ? uploadedPaths.reduce((best, cur) => {
+        const tsA = parseInt(basename(best).split('_')[0] ?? '0') || 0
+        const tsB = parseInt(basename(cur).split('_')[0] ?? '0') || 0
+        return tsB > tsA ? cur : best
+      })
+    : null
+
+  const displayName = hasPending
+    ? pendingFile.name
+    : mostRecentPath
+      ? stripTimestamp(basename(mostRecentPath))
+      : ''
+
+  const extraCount = !hasPending ? Math.max(0, uploadedPaths.length - 1) : 0
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Subir: ${doc.label}`}
-      className={[
-        'rounded-lg border transition-colors duration-150 cursor-pointer select-none outline-none p-3',
-        'focus-visible:ring-1 focus-visible:ring-terracotta',
-        loaded
-          ? 'border-ochre bg-ochre-dim'
-          : isDragging
-            ? 'border-terracotta bg-terracotta-dim'
-            : doc.isImportant
-              ? 'border-ochre/40 bg-surface hover:border-ochre/70'
-              : 'border-border bg-surface hover:border-terracotta/40',
-      ].join(' ')}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
-      onDrop={(e) => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf"
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(e) => pick(e.target.files?.[0])}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <div className="flex items-start justify-between gap-2">
-        <p className={`text-[11px] font-medium leading-snug ${loaded ? 'text-ochre' : 'text-ink-2'}`}>
+    <div className="space-y-1.5">
+      {/* Label */}
+      <div className="flex items-center gap-2">
+        <p className="flex-1 text-[14px] text-ink-2 leading-snug" style={{ ...OF, fontWeight: 500 }}>
           {doc.label}
         </p>
-        {loaded ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onChange(null) }}
-            className="text-ochre hover:opacity-60 transition-opacity shrink-0"
-            aria-label="Quitar archivo"
-          >
-            <X size={12} />
-          </button>
-        ) : doc.isImportant ? (
-          <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-ochre-dim text-ochre text-[9px] font-semibold whitespace-nowrap shrink-0">
+        {doc.isImportant && (
+          <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-ochre-dim text-ochre text-[10px] font-semibold whitespace-nowrap shrink-0">
             Clave
           </span>
-        ) : null}
+        )}
       </div>
-      <p className="text-[10px] text-ink-3 mt-1">
-        {loaded ? file.name : (doc.note ?? 'PDF · Arrastra o clic')}
-      </p>
+
+      {isActive ? (
+        /* Green "uploaded / staged" row */
+        <div className="flex items-center gap-3 rounded-[8px]" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', padding: '10px 14px' }}>
+          <FileCheck size={14} color="#059669" className="shrink-0" />
+          <span className="flex-1 min-w-0 text-[13px] text-[#374151] truncate" style={{ ...OF, fontWeight: 500 }}>
+            {displayName}
+            {extraCount > 0 && (
+              <span className="ml-1.5 text-[#059669] text-[12px]">(+{extraCount} más)</span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => { setShowDropzone(true); onPendingChange(null) }}
+            className="text-[12px] font-medium shrink-0 hover:opacity-75 transition-opacity duration-150"
+            style={{ ...OF, color: '#E8593C' }}
+          >
+            Actualizar
+          </button>
+        </div>
+      ) : (
+        /* Drop-zone compacto */
+        <div>
+          {showDropzone && (
+            <div className="flex justify-end mb-1">
+              <button
+                type="button"
+                onClick={() => setShowDropzone(false)}
+                className="text-[11px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
+                style={OF}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Subir: ${doc.label}`}
+            className={[
+              'h-[60px] flex items-center justify-center rounded-[8px] border-2 border-dashed cursor-pointer',
+              'transition-colors duration-150 select-none outline-none focus-visible:ring-1 focus-visible:ring-terracotta',
+              isDragging
+                ? 'border-terracotta bg-terracotta-dim'
+                : 'border-[#D1D5DB] bg-[#F9FAFB] hover:border-[#9CA3AF]',
+            ].join(' ')}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false) }}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pdf,.doc,.docx"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(e) => pick(e.target.files?.[0])}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-[12px] text-[#9CA3AF]" style={OF}>
+              {isDragging ? 'Suelta aquí' : 'Arrastra o haz clic para subir'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -321,7 +379,7 @@ export default function EmpresaDetailPage() {
 
     const formData = new FormData()
     let idx = 0
-    ALL_DOCS.forEach((doc) => {
+    CATEGORIAS_DOCS.forEach((doc) => {
       const f = pendingFiles[doc.id]
       if (f) { formData.append('archivos', f); formData.append(`tipo_documento_${idx}`, doc.id); idx++ }
     })
@@ -393,6 +451,14 @@ export default function EmpresaDetailPage() {
   const { label: estadoLabel, cls: estadoCls } = estadoMap[empresa.estado]
   const archivos = empresa.archivos_path ?? []
 
+  // Archivos que no matchean ninguna categoría → van en "otros"
+  const archivosNoMatcheados = archivos.filter(
+    (p) => !CATEGORIAS_DOCS.some((doc) => matchCategoria(p, doc.keywords))
+  )
+
+  const mainDocs = CATEGORIAS_DOCS.slice(0, 9)
+  const highlightDoc = CATEGORIAS_DOCS[9]!
+
   return (
     <>
       {/* Breadcrumb */}
@@ -448,32 +514,14 @@ export default function EmpresaDetailPage() {
                 </dl>
               </div>
 
-              {/* Uploaded docs */}
-              {archivos.length > 0 && (
-                <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                  <h2 className="text-[14px] font-semibold text-ink mb-4">
-                    Documentos subidos
-                    <span className="ml-2 text-[12px] font-normal text-ink-3 font-mono">{archivos.length}</span>
-                  </h2>
-                  <ul className="space-y-1.5" role="list">
-                    {archivos.map((path, i) => (
-                      <li key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-bg border border-border">
-                        <FileText size={13} className="text-ink-3 shrink-0" />
-                        <span className="flex-1 min-w-0 text-[12px] text-ink truncate">{basename(path)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Upload section */}
+              {/* Documentos por categoría */}
               <div className="bg-surface rounded-2xl border border-border p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-                <div className="flex items-baseline justify-between mb-4">
+                <div className="flex items-baseline justify-between mb-5">
                   <div>
                     <h2 className="text-[14px] font-semibold text-ink">
-                      {archivos.length === 0 ? 'Subir documentos' : 'Agregar documentos'}
+                      {archivos.length === 0 ? 'Subir documentos' : 'Documentos'}
                     </h2>
-                    <p className="text-[11px] text-ink-3 mt-0.5">Solo PDF</p>
+                    <p className="text-[11px] text-ink-3 mt-0.5">PDF, DOC o DOCX</p>
                   </div>
                   {pendingCount > 0 && (
                     <span className="text-[11px] font-mono text-ochre tabular-nums">
@@ -482,25 +530,31 @@ export default function EmpresaDetailPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {ESSENTIAL_DOCS.map((doc) => (
-                    <DocumentSlot
+                {/* Grid 2 col — primeros 9 */}
+                <div className="grid grid-cols-2 gap-4">
+                  {mainDocs.map((doc) => (
+                    <DocumentSlotWithFeedback
                       key={doc.id}
                       doc={doc}
-                      file={pendingFiles[doc.id] ?? null}
-                      onChange={(f) => setPendingFile(doc.id, f)}
+                      pendingFile={pendingFiles[doc.id] ?? null}
+                      onPendingChange={(f) => setPendingFile(doc.id, f)}
+                      uploadedPaths={archivos.filter((p) => matchCategoria(p, doc.keywords))}
                     />
                   ))}
                 </div>
-                <div className="mt-2">
-                  <DocumentSlot
-                    doc={CUADRO_EXPERIENCIA}
-                    file={pendingFiles[CUADRO_EXPERIENCIA.id] ?? null}
-                    onChange={(f) => setPendingFile(CUADRO_EXPERIENCIA.id, f)}
+
+                {/* Cuadro de experiencia — ancho completo */}
+                <div className="mt-4">
+                  <DocumentSlotWithFeedback
+                    doc={highlightDoc}
+                    pendingFile={pendingFiles[highlightDoc.id] ?? null}
+                    onPendingChange={(f) => setPendingFile(highlightDoc.id, f)}
+                    uploadedPaths={archivos.filter((p) => matchCategoria(p, highlightDoc.keywords))}
                   />
                 </div>
 
-                <div className="mt-4">
+                {/* Otros documentos */}
+                <div className="mt-5">
                   <p className="text-[11px] text-ink-3 mb-2">Otros documentos (estados financieros, referencias...)</p>
                   <DropZone
                     accept={['.pdf', '.doc', '.docx', '.xlsx', '.xls']}
@@ -508,6 +562,16 @@ export default function EmpresaDetailPage() {
                     onFiles={setPendingOtherFiles}
                     isLoading={isUploading}
                   />
+                  {archivosNoMatcheados.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {archivosNoMatcheados.map((p, i) => (
+                        <li key={i} className="flex items-center gap-2 text-[12px] text-ink-2 font-mono">
+                          <FileCheck size={12} className="text-[#059669] shrink-0" />
+                          {stripTimestamp(basename(p))}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
                 {uploadError && <p className="mt-3 text-[12px] text-terracotta">{uploadError}</p>}
@@ -517,7 +581,7 @@ export default function EmpresaDetailPage() {
                   <button
                     type="button"
                     onClick={handleUpload}
-                    className="mt-4 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
+                    className="mt-5 px-4 py-2.5 rounded-lg text-[13px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors"
                   >
                     Subir {pendingCount} {pendingCount === 1 ? 'documento' : 'documentos'}
                   </button>
