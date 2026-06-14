@@ -15,11 +15,11 @@ export default function PliegoDetailRedirect() {
         if (pliego.licitacion_id) {
           router.replace(`/dashboard/licitaciones/${pliego.licitacion_id}`)
         } else {
-          router.replace('/dashboard/licitaciones')
+          router.replace('/dashboard/pliegos')
         }
       })
       .catch(() => {
-        router.replace('/dashboard/licitaciones')
+        router.replace('/dashboard/pliegos')
       })
   }, [id, router])
 

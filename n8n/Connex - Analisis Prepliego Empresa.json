@@ -40,22 +40,8 @@
     },
     {
       "parameters": {
-        "fieldToSplitOut": "empresaIds",
-        "options": {}
-      },
-      "id": "b1b2c3d4-0003-4000-8000-000000000003",
-      "name": "Split empresaIds",
-      "type": "n8n-nodes-base.splitOut",
-      "typeVersion": 1,
-      "position": [
-        480,
-        0
-      ]
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, nombre, nit, sector, contexto_procesado FROM empresas WHERE id = '{{ $json.body.empresaIds }}'",
+        "query": "SELECT id, nombre, nit, sector, contexto_procesado FROM empresas WHERE id = '{{ $json.empresaId }}'",
         "options": {}
       },
       "id": "b1b2c3d4-0004-4000-8000-000000000004",
@@ -228,15 +214,44 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhookData = $('Webhook prepliego-empresa').item.json.body;\nconst currentItem = $input.item.json;\nreturn [{\n  json: {\n    ...currentItem,\n    empresaIds: webhookData.empresaIds || [],\n    faseId: webhookData.faseId,\n    licitacionId: webhookData.licitacionId\n  }\n}];",
-        "mode": "runOnceForEachItem"
+        "jsCode": "const webhookData = $('Webhook prepliego-empresa').item.json.body;\nconst empresaIds = webhookData.empresaIds || [];\nconst faseId = webhookData.faseId || '';\nconst licitacionId = webhookData.licitacionId || '';\nconst documentosPath = webhookData.documentosPath || [];\n\n// Devolver UN item por empresa — n8n procesa cada item por separado\nreturn empresaIds.map(empresaId => ({\n  json: {\n    empresaId: String(empresaId),\n    faseId: String(faseId),\n    licitacionId: String(licitacionId),\n    documentosPath: JSON.stringify(documentosPath)\n  }\n}));",
+        "mode": "runOnceForAllItems"
       },
-      "id": "a9f1e2b3-1001-4000-8000-111111111111",
-      "name": "Code - Extraer empresaIds",
+      "id": "b1b2c3d4-1010-4000-8000-101010101010",
+      "name": "Code - Split empresas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parseData = $('Code - Parsear respuesta').item.json;\nconst faseId   = String(parseData.faseId   || '');\nconst empresaId = String(parseData.empresaId || '');\n\nlet resultado = {};\ntry { resultado = JSON.parse(parseData.resultado || '{}'); } catch(e) {}\n\nconst veredicto = resultado.veredicto_general || '';\nconst score = veredicto === 'cabe' ? 80 : veredicto === 'cabe_con_observaciones' ? 55 : 20;\nconst justificacion = String(resultado.resumen_ejecutivo || resultado.observaciones_texto || '')\n  .slice(0, 2000).replace(/'/g, \"''\");\nconst resultadoStr = (parseData.resultado || '{}').replace(/'/g, \"''\");\n\nreturn [{\n  json: {\n    faseId,\n    empresaId,\n    score,\n    justificacion,\n    resultadoStr,\n    ronda: 'prepliego'\n  }\n}];",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "b1b2c3d4-9001-4000-8000-aaaaaaaaaaaa",
+      "name": "Code - Build comparacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO comparaciones (id, pliego_id, empresa_id, ronda, score, resultado, justificacion, seleccionada, created_at) SELECT   gen_random_uuid(),   p.id,   '{{ $json.empresaId }}'::uuid,   '{{ $json.ronda }}',   {{ $json.score }},   '{{ $json.resultadoStr }}'::jsonb,   '{{ $json.justificacion }}',   false,   NOW() FROM pliegos p WHERE p.fase_id = '{{ $json.faseId }}'::uuid AND NOT EXISTS (  SELECT 1 FROM comparaciones c2   WHERE c2.pliego_id = p.id     AND c2.empresa_id = '{{ $json.empresaId }}'::uuid     AND c2.ronda = '{{ $json.ronda }}')",
+        "options": {}
+      },
+      "id": "b1b2c3d4-9002-4000-8000-bbbbbbbbbbbb",
+      "name": "Postgres - Guardar comparacion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        2160,
         0
       ]
     }
@@ -258,18 +273,7 @@
       "main": [
         [
           {
-            "node": "Code - Extraer empresaIds",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Split empresaIds": {
-      "main": [
-        [
-          {
-            "node": "Postgres - Obtener empresa",
+            "node": "Code - Split empresas",
             "type": "main",
             "index": 0
           }
@@ -351,11 +355,33 @@
         ]
       ]
     },
-    "Code - Extraer empresaIds": {
+    "Code - Split empresas": {
       "main": [
         [
           {
-            "node": "Split empresaIds",
+            "node": "Postgres - Obtener empresa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Guardar por empresa": {
+      "main": [
+        [
+          {
+            "node": "Code - Build comparacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build comparacion": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Guardar comparacion",
             "type": "main",
             "index": 0
           }

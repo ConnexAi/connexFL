@@ -217,6 +217,15 @@ function EmpresaAnalisisCard({ empresaId, empresaNombre, data, licitacionId, fas
         </a>
       </div>
 
+      {!expanded && data.resumen_ejecutivo && (
+        <p
+          className="px-4 pb-3 text-[12px] text-ink-2 leading-snug"
+          style={{ ...OF, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+        >
+          {data.resumen_ejecutivo}
+        </p>
+      )}
+
       {expanded && (
         <div className="px-4 pb-4 pt-3 border-t border-border-subtle space-y-4">
           {data.resumen_ejecutivo && (

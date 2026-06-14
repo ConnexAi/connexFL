@@ -277,7 +277,7 @@ export default function LicitacionDetailPage() {
         <div className="text-center max-w-xs">
           <p className="text-[14px] font-semibold text-ink mb-2">Licitación no encontrada</p>
           <p className="text-[13px] text-ink-2 mb-5">{error ?? 'No existe o no tienes acceso.'}</p>
-          <Link href="/dashboard/licitaciones" className="text-[13px] text-terracotta hover:underline">
+          <Link href="/dashboard/pliegos" className="text-[13px] text-terracotta hover:underline">
             ← Volver a licitaciones
           </Link>
         </div>
@@ -293,7 +293,7 @@ export default function LicitacionDetailPage() {
       <header className="sticky top-0 z-10 flex items-center justify-between px-8 h-16 bg-bg border-b border-border-subtle shrink-0 gap-4">
         <div className="flex items-center gap-2 min-w-0">
           <Link
-            href="/dashboard/licitaciones"
+            href="/dashboard/pliegos"
             className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150 shrink-0"
           >
             <IconBack />

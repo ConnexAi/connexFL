@@ -391,7 +391,7 @@ function AnexosContent() {
       {/* Breadcrumb */}
       <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <Link
-          href="/dashboard/licitaciones"
+          href="/dashboard/pliegos"
           className="flex items-center gap-1 text-[14px] text-[#374151] hover:text-[#111827] transition-colors duration-150 shrink-0"
           style={OF}
         >

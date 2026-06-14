@@ -325,7 +325,7 @@ export default function NuevaLicitacionPage() {
       {/* Topbar */}
       <header className="sticky top-0 z-10 flex items-center gap-2 px-8 h-16 bg-bg border-b border-border-subtle shrink-0">
         <Link
-          href="/dashboard/licitaciones"
+          href="/dashboard/pliegos"
           className="flex items-center gap-1 text-[13px] text-ink-2 hover:text-ink transition-colors duration-150"
           aria-label="Volver a licitaciones"
         >
@@ -405,7 +405,7 @@ export default function NuevaLicitacionPage() {
                   Continuar
                 </button>
                 <Link
-                  href="/dashboard/licitaciones"
+                  href="/dashboard/pliegos"
                   className="px-4 py-2.5 rounded-[10px] text-[13px] text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors duration-150"
                 >
                   Cancelar

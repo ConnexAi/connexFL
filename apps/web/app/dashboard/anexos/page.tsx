@@ -167,7 +167,7 @@ export default function AnexosPage() {
               Analiza una licitación y compárala con tus empresas para generar los documentos de la oferta.
             </p>
             <Link
-              href="/dashboard/licitaciones"
+              href="/dashboard/pliegos"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[13px] transition-colors hover:opacity-90"
               style={{ ...OF, fontWeight: 600, background: '#E8593C', color: 'white' }}
             >

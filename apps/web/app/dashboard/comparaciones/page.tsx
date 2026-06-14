@@ -169,6 +169,17 @@ function PliegoCard({ group }: { group: PliegoGroup }) {
               </div>
               <ScoreBadge score={c.score} />
               <RecPill score={c.score} />
+              <span
+                className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px]"
+                style={{
+                  ...OF,
+                  fontWeight: 600,
+                  background: c.ronda === 'pliego_definitivo' ? '#FEF0ED' : '#F3F4F6',
+                  color: c.ronda === 'pliego_definitivo' ? '#E8593C' : '#374151',
+                }}
+              >
+                {c.ronda === 'pliego_definitivo' ? 'Definitivo' : 'Pre-pliego'}
+              </span>
             </div>
           ))}
         </div>

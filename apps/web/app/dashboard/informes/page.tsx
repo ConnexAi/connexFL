@@ -309,7 +309,7 @@ export default function InformesPage() {
               Analiza licitaciones y compáralas con tus empresas para generar informes.
             </p>
             <Link
-              href="/dashboard/licitaciones"
+              href="/dashboard/pliegos"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-[13px] transition-colors hover:opacity-90"
               style={{ ...OF, fontWeight: 600, background: '#E8593C', color: 'white' }}
             >

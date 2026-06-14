@@ -312,7 +312,7 @@ export default function DashboardPage() {
             <section className="bg-surface rounded-xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
                 <h2 className="text-[18px] text-ink" style={{ ...OF, fontWeight: 600 }}>Pliegos recientes</h2>
-                <Link href="/dashboard/licitaciones"
+                <Link href="/dashboard/pliegos"
                   className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors"
                   style={{ ...OF, fontWeight: 600 }}>
                   Ver todos
