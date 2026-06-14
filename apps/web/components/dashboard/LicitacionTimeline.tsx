@@ -754,6 +754,7 @@ export interface LicitacionTimelineProps {
   comparaciones: ComparacionConEmpresa[]
   onAgregarFase: (tipo: TipoFase) => void
   onAnalyzarEmpresas: (faseId: string, empresaIds: string[]) => Promise<void>
+  onEliminarFase?: (faseId: string, tipoFase: TipoFase) => Promise<void>
 }
 
 export default function LicitacionTimeline({
@@ -762,10 +763,13 @@ export default function LicitacionTimeline({
   comparaciones,
   onAgregarFase,
   onAnalyzarEmpresas,
+  onEliminarFase,
 }: LicitacionTimelineProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [nodoCritico, setNodoCritico] = useState<TipoFase | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ faseId: string; tipoFase: TipoFase } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     const faseParam = searchParams.get('fase')
@@ -858,6 +862,22 @@ export default function LicitacionTimeline({
         onAgregar={() => onAgregarFase(tipo)}
       />
     )
+  }
+
+  const panelUltimaFase = nodoCritico && nodoCritico !== 'anexos'
+    ? (fasesDe(nodoCritico)[0] ?? null)
+    : null
+
+  async function handleConfirmDeleteFase() {
+    if (!deleteConfirm || !onEliminarFase) return
+    setIsDeleting(true)
+    try {
+      await onEliminarFase(deleteConfirm.faseId, deleteConfirm.tipoFase)
+      setDeleteConfirm(null)
+      setNodoCritico(null)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -962,7 +982,7 @@ export default function LicitacionTimeline({
           }}
         >
           {/* Cabecera del panel */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between group">
             <div className="flex items-center gap-2">
               <div
                 className="w-2 h-2 rounded-full"
@@ -975,16 +995,62 @@ export default function LicitacionTimeline({
                 <span className="text-[12px] text-[#9CA3AF]" style={OF}>Sin agregar</span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setNodoCritico(null)}
-              className="text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors"
-              style={OF}
-              aria-label="Cerrar"
-            >
-              Cerrar ✕
-            </button>
+            <div className="flex items-center gap-2">
+              {panelUltimaFase && onEliminarFase && !deleteConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm({ faseId: panelUltimaFase.id, tipoFase: nodoCritico! })}
+                  className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[12px] text-[#9CA3AF] hover:text-[#DC2626] transition-all duration-150"
+                  style={OF}
+                  aria-label="Eliminar fase"
+                >
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+                    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M13 4l-.8 9.5a.5.5 0 0 1-.5.5H4.3a.5.5 0 0 1-.5-.5L3 4" />
+                  </svg>
+                  Eliminar fase
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setNodoCritico(null); setDeleteConfirm(null) }}
+                className="text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors"
+                style={OF}
+                aria-label="Cerrar"
+              >
+                Cerrar ✕
+              </button>
+            </div>
           </div>
+
+          {/* Confirmación eliminación fase */}
+          {deleteConfirm && (
+            <div className="rounded-[10px] bg-[#FEF2F2] border border-[#DC2626]/20 px-4 py-3 space-y-2.5">
+              <p className="text-[13px] text-[#111827]" style={{ ...OF, fontWeight: 500 }}>
+                ¿Eliminar esta fase? Se perderá el análisis guardado.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteFase}
+                  disabled={isDeleting}
+                  className="px-3 py-1.5 rounded-[8px] text-[12px] text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors disabled:opacity-60"
+                  style={{ ...OF, fontWeight: 600 }}
+                >
+                  {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={isDeleting}
+                  className="px-3 py-1.5 rounded-[8px] text-[12px] text-[#6B7280] hover:text-[#111827] transition-colors"
+                  style={OF}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Contenido */}
           {renderContenido(nodoCritico)}

@@ -455,4 +455,64 @@ licitacionesRouter.get('/:id/fases/:faseId/resumen-docx', async (c) => {
   }
 })
 
+// DELETE /api/licitaciones/:id — eliminar licitación y pliego asociado
+licitacionesRouter.delete('/:id', async (c) => {
+  const user = c.get('user')
+  const licitacionId = c.req.param('id')
+
+  try {
+    const abogado = await pool.query('SELECT id FROM abogados WHERE email = $1', [user.email])
+    if (abogado.rows.length === 0) return c.json({ error: 'No autorizado' }, 401)
+
+    // Verificar ownership antes de borrar
+    const lic = await pool.query(
+      'SELECT id FROM licitaciones WHERE id = $1 AND abogado_id = $2',
+      [licitacionId, abogado.rows[0].id]
+    )
+    if (lic.rows.length === 0) return c.json({ error: 'Licitación no encontrada' }, 404)
+
+    // Eliminar pliego asociado si existe (CASCADE no lo cubre automáticamente)
+    await pool.query('DELETE FROM pliegos WHERE licitacion_id = $1', [licitacionId])
+
+    await pool.query(
+      'DELETE FROM licitaciones WHERE id = $1 AND abogado_id = $2',
+      [licitacionId, abogado.rows[0].id]
+    )
+
+    return c.json({ ok: true })
+  } catch (error) {
+    console.error('Error eliminando licitación:', error)
+    return c.json({ error: 'Error al eliminar la licitación' }, 500)
+  }
+})
+
+// DELETE /api/licitaciones/:id/fases/:faseId — eliminar una fase específica
+licitacionesRouter.delete('/:id/fases/:faseId', async (c) => {
+  const user = c.get('user')
+  const licitacionId = c.req.param('id')
+  const faseId = c.req.param('faseId')
+
+  try {
+    const abogado = await pool.query('SELECT id FROM abogados WHERE email = $1', [user.email])
+    if (abogado.rows.length === 0) return c.json({ error: 'No autorizado' }, 401)
+
+    const lic = await pool.query(
+      'SELECT id FROM licitaciones WHERE id = $1 AND abogado_id = $2',
+      [licitacionId, abogado.rows[0].id]
+    )
+    if (lic.rows.length === 0) return c.json({ error: 'Licitación no encontrada' }, 404)
+
+    const result = await pool.query(
+      'DELETE FROM licitacion_fases WHERE id = $1 AND licitacion_id = $2 RETURNING id',
+      [faseId, licitacionId]
+    )
+    if (result.rows.length === 0) return c.json({ error: 'Fase no encontrada' }, 404)
+
+    return c.json({ ok: true })
+  } catch (error) {
+    console.error('Error eliminando fase:', error)
+    return c.json({ error: 'Error al eliminar la fase' }, 500)
+  }
+})
+
 export default licitacionesRouter

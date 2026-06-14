@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { api } from '@/lib/api'
 import type { LicitacionListItem, TipoFase, EstadoLicitacion } from '@/lib/types'
-import { Plus, ArrowRight } from 'lucide-react'
+import { Plus, ArrowRight, Trash2 } from 'lucide-react'
 
 const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
 
@@ -26,6 +26,58 @@ const FASE_MAP: Record<TipoFase, { label: string; bg: string; color: string }> =
   pliego_definitivo:        { label: 'Pliego',        bg: '#FEF0ED', color: '#E8593C' },
   anexos:                   { label: 'Anexos',        bg: '#FEF9C3', color: '#854D0E' },
   evaluacion_observaciones: { label: 'En evaluación', bg: '#DCFCE7', color: '#15803D' },
+}
+
+function ConfirmDeleteModal({
+  nombre,
+  mensaje,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: {
+  nombre: string
+  mensaje: string
+  isDeleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="bg-surface rounded-2xl border border-border shadow-[0_8px_32px_rgba(0,0,0,0.18)] w-full max-w-sm mx-4 p-6 space-y-4">
+        <div>
+          <p className="text-[15px] font-semibold text-[#111827]" style={OF}>
+            ¿Eliminar &ldquo;{nombre}&rdquo;?
+          </p>
+          <p className="text-[13px] text-[#6B7280] mt-1.5 leading-relaxed" style={OF}>
+            {mensaje}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-[10px] text-[13px] text-[#374151] bg-[#F9FAFB] border border-[#E5E7EB] hover:bg-[#F3F4F6] transition-colors disabled:opacity-50"
+            style={{ ...OF, fontWeight: 600 }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-[10px] text-[13px] text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors disabled:opacity-60"
+            style={{ ...OF, fontWeight: 600 }}
+          >
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function SkeletonCard() {
@@ -48,65 +100,73 @@ function SkeletonCard() {
   )
 }
 
-function LicitacionCard({ lic }: { lic: LicitacionListItem }) {
+function LicitacionCard({ lic, onDeleteRequest }: { lic: LicitacionListItem; onDeleteRequest: () => void }) {
   const estado = ESTADO_MAP[lic.estado] ?? ESTADO_MAP.activa
   const fase = lic.ultima_fase_listo ? FASE_MAP[lic.ultima_fase_listo] : null
 
   return (
-    <Link
-      href={`/dashboard/licitaciones/${lic.id}`}
-      className="bg-surface rounded-xl border border-border p-5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.09)] transition-shadow duration-200 flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
-    >
-      <div className="flex items-start gap-3 mb-4">
-        <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
-            stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
-            <path d="M9.5 1.5V4.5h3" />
-            <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
-          </svg>
+    <div className="bg-surface rounded-xl border border-border hover:shadow-[0_4px_16px_rgba(0,0,0,0.09)] transition-shadow duration-200 flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden">
+      <Link href={`/dashboard/licitaciones/${lic.id}`} className="flex flex-col p-5 flex-1">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+              stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3.5 1.5h6l3 3v9.5a.5.5 0 0 1-.5.5h-8.5a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5Z" />
+              <path d="M9.5 1.5V4.5h3" />
+              <path d="M5.5 7.5h5M5.5 9.5h5M5.5 11.5h3" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] text-[#111827] leading-snug line-clamp-2" style={{ ...OF, fontWeight: 600 }}>
+              {lic.nombre}
+            </p>
+            {lic.entidad_contratante && (
+              <p className="text-[13px] text-[#6B7280] mt-0.5 truncate date-caption">{lic.entidad_contratante}</p>
+            )}
+            {lic.secop_id && (
+              <p className="text-[12px] text-[#9CA3AF] mt-0.5 date-caption">{lic.secop_id}</p>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] text-[#111827] leading-snug line-clamp-2" style={{ ...OF, fontWeight: 600 }}>
-            {lic.nombre}
-          </p>
-          {lic.entidad_contratante && (
-            <p className="text-[13px] text-[#6B7280] mt-0.5 truncate date-caption">{lic.entidad_contratante}</p>
-          )}
-          {lic.secop_id && (
-            <p className="text-[12px] text-[#9CA3AF] mt-0.5 date-caption">{lic.secop_id}</p>
-          )}
-        </div>
-      </div>
 
-      <div className="flex flex-wrap gap-2 flex-1">
-        <span
-          className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
-          style={{ ...OF, fontWeight: 600, background: estado.bg, color: estado.color }}
-        >
-          {estado.label}
-        </span>
-        {fase ? (
+        <div className="flex flex-wrap gap-2 flex-1">
           <span
             className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
-            style={{ ...OF, fontWeight: 600, background: fase.bg, color: fase.color }}
+            style={{ ...OF, fontWeight: 600, background: estado.bg, color: estado.color }}
           >
-            {fase.label}
+            {estado.label}
           </span>
-        ) : (
-          <span
-            className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
-            style={{ ...OF, fontWeight: 600, background: '#F3F4F6', color: '#9CA3AF' }}
-          >
-            Sin análisis
-          </span>
-        )}
-      </div>
+          {fase ? (
+            <span
+              className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
+              style={{ ...OF, fontWeight: 600, background: fase.bg, color: fase.color }}
+            >
+              {fase.label}
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap"
+              style={{ ...OF, fontWeight: 600, background: '#F3F4F6', color: '#9CA3AF' }}
+            >
+              Sin análisis
+            </span>
+          )}
+        </div>
+      </Link>
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#F0F4F8]">
+      <div className="flex items-center justify-between px-5 py-3 border-t border-[#F0F4F8]">
         <p className="text-[13px] text-[#6B7280] date-caption">{formatDate(lic.created_at)}</p>
+        <button
+          type="button"
+          onClick={onDeleteRequest}
+          className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[12px] bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FECACA] transition-colors"
+          style={{ ...OF, fontWeight: 600 }}
+        >
+          <Trash2 size={12} />
+          Eliminar
+        </button>
       </div>
-    </Link>
+    </div>
   )
 }
 
@@ -116,6 +176,8 @@ export default function LicitacionesListPage() {
   const [licitaciones, setLicitaciones] = useState<LicitacionListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nombre: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (!sessionPending && !session) router.push('/login')
@@ -130,10 +192,35 @@ export default function LicitacionesListPage() {
       .finally(() => setIsLoading(false))
   }, [session])
 
+  async function handleDeleteLicitacion() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      await api.licitaciones.delete(deleteTarget.id)
+      setLicitaciones(prev => prev.filter(l => l.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch {
+      setError('No se pudo eliminar la licitación. Intenta de nuevo.')
+      setDeleteTarget(null)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (sessionPending) return null
   if (!session) return null
 
   return (
+    <>
+    {deleteTarget && (
+      <ConfirmDeleteModal
+        nombre={deleteTarget.nombre}
+        mensaje="Se eliminarán todas sus fases, análisis, comparaciones y anexos. Esta acción no se puede deshacer."
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteLicitacion}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    )}
     <div className="flex-1 overflow-auto">
       <div className="max-w-[1280px] mx-auto px-8 py-8">
         <div className="flex items-center justify-between mb-8">
@@ -194,10 +281,11 @@ export default function LicitacionesListPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
-            {licitaciones.map((l) => <LicitacionCard key={l.id} lic={l} />)}
+            {licitaciones.map((l) => <LicitacionCard key={l.id} lic={l} onDeleteRequest={() => setDeleteTarget({ id: l.id, nombre: l.nombre })} />)}
           </div>
         )}
       </div>
     </div>
+    </>
   )
 }

@@ -358,6 +358,28 @@ empresasRouter.get('/:id/analisis-docx', async (c) => {
   }
 })
 
+// DELETE /api/empresas/:id — eliminar empresa
+empresasRouter.delete('/:id', async (c) => {
+  const user = c.get('user')
+  const empresaId = c.req.param('id')
+
+  try {
+    const abogado = await pool.query('SELECT id FROM abogados WHERE email = $1', [user.email])
+    if (abogado.rows.length === 0) return c.json({ error: 'No autorizado' }, 401)
+
+    const result = await pool.query(
+      'DELETE FROM empresas WHERE id = $1 AND abogado_id = $2 RETURNING id',
+      [empresaId, abogado.rows[0].id]
+    )
+
+    if (result.rows.length === 0) return c.json({ error: 'Empresa no encontrada' }, 404)
+    return c.json({ ok: true })
+  } catch (error) {
+    console.error('Error eliminando empresa:', error)
+    return c.json({ error: 'Error al eliminar la empresa' }, 500)
+  }
+})
+
 // GET /api/empresas/:id — obtener empresa por id
 empresasRouter.get('/:id', async (c) => {
   const user = c.get('user')

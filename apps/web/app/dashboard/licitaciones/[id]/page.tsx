@@ -263,6 +263,11 @@ export default function LicitacionDetailPage() {
     loadData()
   }
 
+  async function handleEliminarFase(faseId: string) {
+    await api.licitaciones.deleteFase(id, faseId)
+    loadData()
+  }
+
   if (sessionPending || isLoading) return <Skeleton />
   if (!session) return null
 
@@ -342,6 +347,7 @@ export default function LicitacionDetailPage() {
             comparaciones={comparaciones}
             onAgregarFase={openModal}
             onAnalyzarEmpresas={handleAnalyzarEmpresas}
+            onEliminarFase={handleEliminarFase}
           />
         </div>
       </div>

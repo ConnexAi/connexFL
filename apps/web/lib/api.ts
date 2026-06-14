@@ -36,6 +36,7 @@ export const api = {
   empresas: {
     list: () => apiFetch<EmpresaListItem[]>('/api/empresas'),
     get: (id: string) => apiFetch<EmpresaDetail>(`/api/empresas/${id}`),
+    delete: (id: string) => apiFetch<{ ok: boolean }>(`/api/empresas/${id}`, { method: 'DELETE' }),
   },
   pliegos: {
     list: () => apiFetch<PliegoListItem[]>('/api/pliegos'),
@@ -91,5 +92,8 @@ export const api = {
       const qs = empresaId ? `?empresaId=${encodeURIComponent(empresaId)}` : ''
       return `${API_URL}/api/licitaciones/${id}/fases/${faseId}/resumen-docx${qs}`
     },
+    delete: (id: string) => apiFetch<{ ok: boolean }>(`/api/licitaciones/${id}`, { method: 'DELETE' }),
+    deleteFase: (id: string, faseId: string) =>
+      apiFetch<{ ok: boolean }>(`/api/licitaciones/${id}/fases/${faseId}`, { method: 'DELETE' }),
   },
 }

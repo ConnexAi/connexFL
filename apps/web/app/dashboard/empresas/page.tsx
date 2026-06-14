@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import type { EmpresaListItem, EstadoEmpresa } from '@/lib/types'
-import { Plus, ArrowRight } from 'lucide-react'
+import { api } from '@/lib/api'
+import { Plus, ArrowRight, Trash2 } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 const OF = { fontFamily: 'var(--font-outfit, Outfit, sans-serif)' }
@@ -54,7 +55,59 @@ function SkeletonCard() {
   )
 }
 
-function EmpresaCard({ empresa }: { empresa: EmpresaListItem }) {
+function ConfirmDeleteModal({
+  nombre,
+  mensaje,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: {
+  nombre: string
+  mensaje: string
+  isDeleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="bg-surface rounded-2xl border border-border shadow-[0_8px_32px_rgba(0,0,0,0.18)] w-full max-w-sm mx-4 p-6 space-y-4">
+        <div>
+          <p className="text-[15px] font-semibold text-[#111827]" style={OF}>
+            ¿Eliminar &ldquo;{nombre}&rdquo;?
+          </p>
+          <p className="text-[13px] text-[#6B7280] mt-1.5 leading-relaxed" style={OF}>
+            {mensaje}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-[10px] text-[13px] text-[#374151] bg-[#F9FAFB] border border-[#E5E7EB] hover:bg-[#F3F4F6] transition-colors disabled:opacity-50"
+            style={{ ...OF, fontWeight: 600 }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="px-4 py-2 rounded-[10px] text-[13px] text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors disabled:opacity-60"
+            style={{ ...OF, fontWeight: 600 }}
+          >
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmpresaCard({ empresa, onDeleteRequest }: { empresa: EmpresaListItem; onDeleteRequest: () => void }) {
   const { label, cls } = estadoMap[empresa.estado]
   const initials = getInitials(empresa.nombre)
   const isListo = empresa.estado === 'listo'
@@ -147,6 +200,16 @@ function EmpresaCard({ empresa }: { empresa: EmpresaListItem }) {
         >
           Ver análisis Claude
         </Link>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDeleteRequest() }}
+          className="flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg text-[13px] bg-[#FEE2E2] text-[#DC2626] hover:bg-[#FECACA] transition-colors shrink-0"
+          style={{ ...OF, fontWeight: 600 }}
+          aria-label={`Eliminar empresa ${empresa.nombre}`}
+        >
+          <Trash2 size={13} />
+          Eliminar
+        </button>
       </div>
     </div>
   )
@@ -158,6 +221,8 @@ export default function EmpresasPage() {
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nombre: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (!sessionPending && !session) router.push('/login')
@@ -176,10 +241,35 @@ export default function EmpresasPage() {
       .finally(() => setIsLoading(false))
   }, [session, router])
 
+  async function handleDeleteEmpresa() {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      await api.empresas.delete(deleteTarget.id)
+      setEmpresas(prev => prev.filter(e => e.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch {
+      setError('No se pudo eliminar la empresa. Intenta de nuevo.')
+      setDeleteTarget(null)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (sessionPending) return null
   if (!session) return null
 
   return (
+    <>
+    {deleteTarget && (
+      <ConfirmDeleteModal
+        nombre={deleteTarget.nombre}
+        mensaje="Esta acción no se puede deshacer. Se eliminarán también sus comparaciones y análisis."
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteEmpresa}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    )}
     <div className="flex-1 overflow-auto">
       <div className="max-w-[1280px] mx-auto px-8 py-8">
         <div className="flex items-center justify-between mb-8">
@@ -232,10 +322,11 @@ export default function EmpresasPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
-            {empresas.map((e) => <EmpresaCard key={e.id} empresa={e} />)}
+            {empresas.map((e) => <EmpresaCard key={e.id} empresa={e} onDeleteRequest={() => setDeleteTarget({ id: e.id, nombre: e.nombre })} />)}
           </div>
         )}
       </div>
     </div>
+    </>
   )
 }
