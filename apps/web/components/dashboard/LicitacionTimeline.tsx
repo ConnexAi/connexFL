@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type {
   LicitacionFase,
   LicitacionAnalisis,
+  LicitacionAnalisisGeneral,
   LicitacionAnalisisEmpresa,
   TipoFase,
   ComparacionConEmpresa,
@@ -38,6 +39,16 @@ const CATEGORIA_LABELS: Record<string, string> = {
   juridico: 'Jurídico', financiero: 'Financiero', tecnico: 'Técnico', experiencia: 'Experiencia',
 }
 
+// Labels descriptivos para el header de la card de empresa analizada
+const VEREDICTO_HEADER = {
+  cabe:                   { label: 'Cabe ✓',                   bg: '#DCFCE7', color: '#15803D' },
+  no_cabe:                { label: 'No cabe ✗',                bg: '#FEE2E2', color: '#DC2626' },
+  cabe_con_observaciones: { label: 'Cabe con observaciones ⚠', bg: '#FEF9C3', color: '#854D0E' },
+  va:                     { label: 'Se recomienda ✓',          bg: '#DCFCE7', color: '#15803D' },
+  no_va:                  { label: 'No se recomienda ✗',       bg: '#FEE2E2', color: '#DC2626' },
+  va_con_riesgos:         { label: 'Con riesgos ⚠',           bg: '#FEF9C3', color: '#854D0E' },
+} as const
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -49,6 +60,22 @@ function formatDate(iso: string | null): string {
 
 function basename(p: string): string {
   return p.split(/[/\\]/).pop() ?? p
+}
+
+function extractAfinidadBadge(text: string): { label: string; bg: string; color: string } | null {
+  const u = text.toUpperCase()
+  if (u.includes('MUY BAJA') || u.includes('NULA')) return { label: 'Nula',  bg: '#FEE2E2', color: '#DC2626' }
+  if (u.includes('BAJA'))  return { label: 'Baja',  bg: '#FEF0ED', color: '#E8593C' }
+  if (u.includes('MEDIA')) return { label: 'Media', bg: '#FEF9C3', color: '#854D0E' }
+  if (u.includes('ALTA'))  return { label: 'Alta',  bg: '#DCFCE7', color: '#15803D' }
+  return null
+}
+
+function countReqHabilitantes(r: LicitacionAnalisisGeneral['requisitos_habilitantes']): number {
+  if (!r) return 0
+  return Object.values(r as Record<string, unknown>)
+    .filter((v): v is string[] => Array.isArray(v))
+    .reduce((n, a) => n + a.length, 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -148,30 +175,47 @@ function EmpresaAnalisisCard({ empresaId, empresaNombre, data, licitacionId, fas
   const [expanded, setExpanded] = useState(false)
 
   const veredicto = data.veredicto_general ?? data.veredicto_final
-  const verCfg = veredicto ? VEREDICTO_CONFIG[veredicto as keyof typeof VEREDICTO_CONFIG] : null
+  const verHdr = veredicto ? VEREDICTO_HEADER[veredicto as keyof typeof VEREDICTO_HEADER] : null
   const docxUrl = api.licitaciones.resumenDocxUrl(licitacionId, faseId, empresaId)
 
   return (
     <div className="border border-border-subtle rounded-[10px] bg-bg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors duration-150 text-left"
-      >
-        <span className="text-[13px] font-medium text-ink flex-1 truncate" style={OF}>{empresaNombre}</span>
-        {verCfg && (
-          <span
-            className="inline-flex items-center h-5 px-2 rounded-full text-[11px] font-medium shrink-0"
-            style={{ ...OF, fontWeight: 600, background: verCfg.bg, color: verCfg.color }}
-          >
-            {verCfg.label}
+      {/* Header siempre visible */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Área expandible */}
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity duration-150"
+        >
+          <span className="text-[15px] font-semibold text-ink flex-1 min-w-0 truncate" style={OF}>
+            {empresaNombre}
           </span>
-        )}
-        {tipoFase === 'evaluacion_observaciones' && data.puntaje_ponderacion !== undefined && (
-          <span className="text-[11px] font-mono text-ink-3 shrink-0">{data.puntaje_ponderacion} pts</span>
-        )}
-        <IconChevron open={expanded} />
-      </button>
+          {verHdr && (
+            <span
+              className="inline-flex items-center h-7 px-3 rounded-[8px] text-[13px] shrink-0"
+              style={{ ...OF, fontWeight: 600, background: verHdr.bg, color: verHdr.color }}
+            >
+              {verHdr.label}
+            </span>
+          )}
+          {tipoFase === 'evaluacion_observaciones' && data.puntaje_ponderacion !== undefined && (
+            <span className="text-[11px] font-mono text-ink-3 shrink-0">{data.puntaje_ponderacion} pts</span>
+          )}
+          <IconChevron open={expanded} />
+        </button>
+        {/* Descarga siempre en el header */}
+        <a
+          href={docxUrl}
+          download
+          onClick={e => e.stopPropagation()}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium bg-terracotta text-white hover:bg-terracotta-hover transition-colors duration-150 shrink-0"
+          style={OF}
+        >
+          <IconDownload />
+          .docx
+        </a>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4 pt-3 border-t border-border-subtle space-y-4">
@@ -234,14 +278,6 @@ function EmpresaAnalisisCard({ empresaId, empresaNombre, data, licitacionId, fas
               <p className="mt-2 text-[13px] text-ink leading-relaxed whitespace-pre-wrap">{data.estrategia_texto}</p>
             </details>
           )}
-          <a
-            href={docxUrl}
-            download
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium border border-border-subtle hover:bg-surface text-ink-2 transition-colors duration-150"
-          >
-            <IconDownload />
-            Descargar análisis (.docx)
-          </a>
         </div>
       )}
     </div>
@@ -257,6 +293,7 @@ interface EmpresaOption {
   nombre: string
   score?: number | null
   afinidad?: string
+  veredicto?: keyof typeof VEREDICTO_CONFIG | null
 }
 
 interface EmpresaSelectorProps {
@@ -270,6 +307,7 @@ interface EmpresaSelectorProps {
 
 function EmpresaSelector({ opciones, seleccionadas, onToggle, isLoading, onSubmit, labelSubmit }: EmpresaSelectorProps) {
   const [sending, setSending] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   async function handleSubmit() {
     setSending(true)
@@ -278,25 +316,76 @@ function EmpresaSelector({ opciones, seleccionadas, onToggle, isLoading, onSubmi
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1.5">
-        {opciones.map((emp) => (
-          <label key={emp.id} className="flex items-center gap-3 px-3 py-2 rounded-[8px] hover:bg-surface cursor-pointer transition-colors duration-150">
-            <input
-              type="checkbox"
-              checked={seleccionadas.has(emp.id)}
-              onChange={() => onToggle(emp.id)}
-              disabled={isLoading || sending}
-              className="accent-terracotta w-3.5 h-3.5 shrink-0"
-            />
-            <span className="text-[13px] text-ink flex-1" style={OF}>{emp.nombre}</span>
-            {emp.score !== undefined && emp.score !== null && (
-              <span className="text-[11px] font-mono text-ink-3 shrink-0">{Math.round(emp.score)} pts</span>
-            )}
-            {emp.afinidad && (
-              <span className="text-[11px] text-ink-3 truncate max-w-[200px] shrink-0">{emp.afinidad}</span>
-            )}
-          </label>
-        ))}
+      <div className="space-y-2">
+        {opciones.map((emp) => {
+          const isExpanded = expandedId === emp.id
+          const afinidadBadge = emp.afinidad ? extractAfinidadBadge(emp.afinidad) : null
+          const verCfg = emp.veredicto ? VEREDICTO_CONFIG[emp.veredicto] : null
+          return (
+            <div key={emp.id} className="border border-border-subtle rounded-[10px] bg-bg overflow-hidden">
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  id={`emp-${emp.id}`}
+                  checked={seleccionadas.has(emp.id)}
+                  onChange={() => onToggle(emp.id)}
+                  disabled={isLoading || sending}
+                  className="accent-terracotta w-3.5 h-3.5 shrink-0 cursor-pointer"
+                />
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(isExpanded ? null : emp.id)}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                >
+                  <span className="text-[15px] text-ink flex-1 min-w-0 truncate" style={{ ...OF, fontWeight: 600 }}>
+                    {emp.nombre}
+                  </span>
+                  {afinidadBadge && (
+                    <span
+                      className="inline-flex items-center h-5 px-2 rounded-full text-[11px] shrink-0"
+                      style={{ ...OF, fontWeight: 600, background: afinidadBadge.bg, color: afinidadBadge.color }}
+                    >
+                      {afinidadBadge.label}
+                    </span>
+                  )}
+                  {verCfg && (
+                    <span
+                      className="inline-flex items-center h-5 px-2 rounded-full text-[11px] shrink-0"
+                      style={{ ...OF, fontWeight: 600, background: verCfg.bg, color: verCfg.color }}
+                    >
+                      {verCfg.label}
+                    </span>
+                  )}
+                  {emp.score !== undefined && emp.score !== null && !afinidadBadge && !verCfg && (
+                    <span className="text-[11px] font-mono text-ink-3 shrink-0">{Math.round(emp.score)} pts</span>
+                  )}
+                  <svg
+                    width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+                    stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`shrink-0 transition-transform duration-200 text-ink-3 ${isExpanded ? 'rotate-90' : ''}`}
+                  >
+                    <path d="M6 3.5 10 8l-4 4.5" />
+                  </svg>
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="px-4 pb-3 pt-2.5 border-t border-border-subtle">
+                  {emp.afinidad ? (
+                    <p className="text-[14px] text-[#374151] leading-[1.6]" style={{ ...OF, fontWeight: 400 }}>
+                      {emp.afinidad}
+                    </p>
+                  ) : emp.score !== undefined && emp.score !== null ? (
+                    <p className="text-[13px] text-ink-2" style={OF}>
+                      Score de afinidad: <span className="font-mono font-medium text-ink">{Math.round(emp.score)} pts</span>
+                    </p>
+                  ) : (
+                    <p className="text-[13px] text-ink-3" style={OF}>Sin información adicional.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
         {opciones.length === 0 && (
           <p className="text-[13px] text-ink-3 px-3">Sin empresas disponibles.</p>
         )}
@@ -311,6 +400,52 @@ function EmpresaSelector({ opciones, seleccionadas, onToggle, isLoading, onSubmi
         <IconSpark />
         {sending ? 'Enviando…' : labelSubmit}
       </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// CollapsibleSection — botón expandible con count badge
+// ---------------------------------------------------------------------------
+
+interface CollapsibleSectionProps {
+  title: string
+  count?: number
+  children: React.ReactNode
+}
+
+function CollapsibleSection({ title, count, children }: CollapsibleSectionProps) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 rounded-[8px] border text-left transition-colors duration-150 hover:bg-[#F3F4F6]"
+        style={{ background: '#F9FAFB', borderColor: '#E5E7EB' }}
+      >
+        <span className="text-[14px] text-[#111827]" style={{ ...OF, fontWeight: 600 }}>{title}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {count !== undefined && count > 0 && (
+            <span
+              className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[11px] bg-[#E5E7EB] text-[#374151]"
+              style={{ ...OF, fontWeight: 600 }}
+            >
+              {count}
+            </span>
+          )}
+          <svg
+            width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            className={`text-[#6B7280] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          >
+            <path d="M3.5 6 8 10 12.5 6" />
+          </svg>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-2">{children}</div>
+      )}
     </div>
   )
 }
@@ -355,7 +490,13 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
     fase.tipo_fase === 'pliego_definitivo'
       ? comparaciones.map(c => ({ id: c.empresa_id, nombre: c.empresa_nombre, score: c.score }))
       : (generalData?.empresas_candidatas ?? []).map(ec => ({
-          id: ec.empresa_id, nombre: ec.nombre_empresa, afinidad: ec.afinidad_resumen,
+          id: ec.empresa_id,
+          nombre: ec.nombre_empresa,
+          afinidad: ec.afinidad_resumen,
+          veredicto: (
+            (porEmpresaData?.[ec.empresa_id]?.veredicto_general ??
+             porEmpresaData?.[ec.empresa_id]?.veredicto_final) ?? null
+          ) as keyof typeof VEREDICTO_CONFIG | null,
         }))
 
   if (fase.estado === 'procesando') {
@@ -388,12 +529,8 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
           )}
 
           {generalData.requisitos_habilitantes && (
-            <details>
-              <summary className="cursor-pointer text-[13px] font-medium text-ink-2 hover:text-ink list-none flex items-center gap-1.5" style={OF}>
-                <span>Requisitos habilitantes</span>
-                <span className="text-ink-3 text-[11px]">(expandir)</span>
-              </summary>
-              <div className="mt-2 space-y-2 pl-3">
+            <CollapsibleSection title="Requisitos habilitantes" count={countReqHabilitantes(generalData.requisitos_habilitantes)}>
+              <div className="space-y-2 pl-1">
                 {(Array.isArray(generalData.requisitos_habilitantes)
                   ? [['general', generalData.requisitos_habilitantes]]
                   : Object.entries(generalData.requisitos_habilitantes as Record<string, unknown>)
@@ -410,23 +547,19 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
                   ) : null
                 )}
               </div>
-            </details>
+            </CollapsibleSection>
           )}
 
           {generalData.criterios_ponderacion && generalData.criterios_ponderacion.length > 0 && (
-            <details>
-              <summary className="cursor-pointer text-[13px] font-medium text-ink-2 hover:text-ink list-none flex items-center gap-1.5" style={OF}>
-                <span>Criterios de ponderación</span>
-                <span className="text-ink-3 text-[11px]">(expandir)</span>
-              </summary>
-              <ul className="mt-2 space-y-1 pl-3">
+            <CollapsibleSection title="Criterios de ponderación" count={generalData.criterios_ponderacion.length}>
+              <ul className="space-y-1 pl-2">
                 {generalData.criterios_ponderacion.map((c, i) => (
                   <li key={i} className="text-[12px] text-ink before:content-['·'] before:mr-2 before:text-ink-3" style={OF}>
                     {c.criterio}: <span className="font-medium">{c.peso}%</span>
                   </li>
                 ))}
               </ul>
-            </details>
+            </CollapsibleSection>
           )}
 
           {generalData.fechas_clave && generalData.fechas_clave.length > 0 && (
