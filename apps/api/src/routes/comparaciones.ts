@@ -46,7 +46,8 @@ comparacionesRouter.get('/', async (c) => {
       : 'ORDER BY c.created_at DESC'
 
     const query = `
-      SELECT c.*, e.nombre AS empresa_nombre, e.nit, e.sector
+      SELECT c.*, e.nombre AS empresa_nombre, e.nit, e.sector,
+             p.licitacion_id AS pliego_licitacion_id
       FROM comparaciones c
       JOIN empresas e ON c.empresa_id = e.id
       JOIN pliegos p ON c.pliego_id = p.id

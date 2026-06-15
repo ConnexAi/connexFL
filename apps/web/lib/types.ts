@@ -190,6 +190,7 @@ export interface ComparacionConEmpresa {
   ronda: string
   seleccionada: boolean
   created_at: string
+  pliego_licitacion_id?: string | null
 }
 
 export interface AnexoReemplazo {

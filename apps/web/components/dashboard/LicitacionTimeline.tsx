@@ -119,6 +119,18 @@ function IconSpark() {
   )
 }
 
+function IconUsers() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Tabla de requisitos
 // ---------------------------------------------------------------------------
@@ -479,7 +491,7 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
   const hayEmpresas = Boolean(porEmpresaData && Object.keys(porEmpresaData).length > 0)
 
   const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
-  const [showSelector, setShowSelector] = useState(false)
+  const [showSelector, setShowSelector] = useState(!hayEmpresas)
 
   function toggleEmpresa(id: string) {
     setSeleccionadas(prev => {
@@ -526,127 +538,182 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
     )
   }
 
+  if (!hayGeneral) {
+    return (
+      <div className="space-y-3">
+        <p className="text-[13px] text-ink-3" style={OF}>Sin análisis disponible. Sube documentos para iniciar.</p>
+        <button
+          type="button"
+          onClick={onAgregar}
+          className="flex items-center gap-1.5 text-[12px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
+          style={OF}
+        >
+          <IconPlus />
+          Agregar nueva versión
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      {hayGeneral && generalData && (
-        <div className="space-y-4">
-          {generalData.resumen_ejecutivo && (
-            <div className="p-3 rounded-[8px]" style={{ background: '#FEF9C3', border: '1px solid rgba(133,77,14,0.2)' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ ...OF, color: '#854D0E' }}>Resumen ejecutivo</p>
-              <p className="text-[13px] text-ink leading-relaxed" style={OF}>{generalData.resumen_ejecutivo}</p>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+
+      {/* ─── COLUMNA IZQUIERDA — Análisis de la licitación ─── */}
+      <div className="space-y-4">
+        <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide" style={OF}>Análisis de la licitación</p>
+
+        {generalData?.resumen_ejecutivo && (
+          <div className="p-3 rounded-[8px]" style={{ background: '#FEF9C3', border: '1px solid rgba(133,77,14,0.2)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ ...OF, color: '#854D0E' }}>Resumen ejecutivo</p>
+            <p className="text-[13px] text-ink leading-relaxed" style={OF}>{generalData.resumen_ejecutivo}</p>
+          </div>
+        )}
+
+        {generalData?.requisitos_habilitantes && (
+          <CollapsibleSection title="Requisitos habilitantes" count={countReqHabilitantes(generalData.requisitos_habilitantes)}>
+            <div className="space-y-2 pl-1">
+              {(Array.isArray(generalData.requisitos_habilitantes)
+                ? [['general', generalData.requisitos_habilitantes]]
+                : Object.entries(generalData.requisitos_habilitantes as Record<string, unknown>)
+              ).map(([cat, items]) =>
+                items && Array.isArray(items) && items.length > 0 ? (
+                  <div key={String(cat)}>
+                    {cat !== 'general' && <p className="text-[11px] font-semibold text-ink-2 mb-1" style={OF}>{CATEGORIA_LABELS[String(cat)] ?? cat}</p>}
+                    <ul className="space-y-0.5 pl-2">
+                      {(items as string[]).map((item, i) => (
+                        <li key={i} className="text-[12px] text-ink before:content-['·'] before:mr-2 before:text-ink-3" style={OF}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null
+              )}
             </div>
-          )}
+          </CollapsibleSection>
+        )}
 
-          {generalData.requisitos_habilitantes && (
-            <CollapsibleSection title="Requisitos habilitantes" count={countReqHabilitantes(generalData.requisitos_habilitantes)}>
-              <div className="space-y-2 pl-1">
-                {(Array.isArray(generalData.requisitos_habilitantes)
-                  ? [['general', generalData.requisitos_habilitantes]]
-                  : Object.entries(generalData.requisitos_habilitantes as Record<string, unknown>)
-                ).map(([cat, items]) =>
-                  items && Array.isArray(items) && items.length > 0 ? (
-                    <div key={String(cat)}>
-                      {cat !== 'general' && <p className="text-[11px] font-semibold text-ink-2 mb-1" style={OF}>{CATEGORIA_LABELS[String(cat)] ?? cat}</p>}
-                      <ul className="space-y-0.5 pl-2">
-                        {(items as string[]).map((item, i) => (
-                          <li key={i} className="text-[12px] text-ink before:content-['·'] before:mr-2 before:text-ink-3" style={OF}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null
-                )}
-              </div>
-            </CollapsibleSection>
-          )}
+        {generalData?.criterios_ponderacion && generalData.criterios_ponderacion.length > 0 && (
+          <CollapsibleSection title="Criterios de ponderación" count={generalData.criterios_ponderacion.length}>
+            <ul className="space-y-1 pl-2">
+              {generalData.criterios_ponderacion.map((c, i) => (
+                <li key={i} className="text-[12px] text-ink before:content-['·'] before:mr-2 before:text-ink-3" style={OF}>
+                  {c.criterio}: <span className="font-medium">{c.peso}%</span>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
 
-          {generalData.criterios_ponderacion && generalData.criterios_ponderacion.length > 0 && (
-            <CollapsibleSection title="Criterios de ponderación" count={generalData.criterios_ponderacion.length}>
-              <ul className="space-y-1 pl-2">
-                {generalData.criterios_ponderacion.map((c, i) => (
-                  <li key={i} className="text-[12px] text-ink before:content-['·'] before:mr-2 before:text-ink-3" style={OF}>
-                    {c.criterio}: <span className="font-medium">{c.peso}%</span>
-                  </li>
-                ))}
-              </ul>
-            </CollapsibleSection>
-          )}
+        {generalData?.fechas_clave && generalData.fechas_clave.length > 0 && (
+          <CollapsibleSection title="Fechas clave" count={generalData.fechas_clave.length}>
+            <ul className="space-y-1 pl-2">
+              {generalData.fechas_clave.map((f, i) => (
+                <li key={i} className="text-[12px] text-ink" style={OF}>
+                  <span className="font-mono text-ink-3">{f.fecha}</span> — {f.evento}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+        )}
 
-          {generalData.fechas_clave && generalData.fechas_clave.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide mb-1.5" style={OF}>Fechas clave</p>
-              <ul className="space-y-1 pl-2">
-                {generalData.fechas_clave.map((f, i) => (
-                  <li key={i} className="text-[12px] text-ink" style={OF}>
-                    <span className="font-mono text-ink-3">{f.fecha}</span> — {f.evento}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {generalData?.cascaritas && generalData.cascaritas.length > 0 && (
+          <div className="p-3 rounded-[8px]" style={{ background: '#FEE2E2', border: '1px solid rgba(220,38,38,0.2)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ ...OF, color: '#DC2626' }}>
+              Alertas ({generalData.cascaritas.length})
+            </p>
+            <ul className="space-y-1">
+              {generalData.cascaritas.map((c, i) => (
+                <li key={i} className="text-[12px] text-ink" style={OF}>
+                  {c.descripcion}{c.ubicacion ? <> — <span className="text-ink-3">{c.ubicacion}</span></> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-          {generalData.cascaritas && generalData.cascaritas.length > 0 && (
-            <div className="p-3 rounded-[8px]" style={{ background: '#FEE2E2', border: '1px solid rgba(220,38,38,0.2)' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ ...OF, color: '#DC2626' }}>Alertas</p>
-              <ul className="space-y-1">
-                {generalData.cascaritas.map((c, i) => (
-                  <li key={i} className="text-[12px] text-ink" style={OF}>
-                    {c.descripcion}{c.ubicacion ? <> — <span className="text-ink-3">{c.ubicacion}</span></> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <a
+          href={api.licitaciones.resumenDocxUrl(licitacionId, fase.id)}
+          download
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium border border-border-subtle hover:bg-surface text-ink-2 transition-colors duration-150"
+          style={OF}
+        >
+          <IconDownload />
+          Descargar resumen general (.docx)
+        </a>
 
-          {fase.tipo_fase === 'pliego_definitivo' && comparaciones.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide mb-2" style={OF}>Empresas analizadas</p>
-              <div className="overflow-x-auto rounded-[8px] border border-border-subtle text-[12px]">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-surface border-b border-border-subtle text-ink-3 font-medium">
-                      <th className="text-left px-3 py-2">Empresa</th>
-                      <th className="text-right px-3 py-2">Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparaciones.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).map(c => (
-                      <tr key={c.id} className="border-b border-border-subtle last:border-0">
-                        <td className="px-3 py-2 text-ink" style={OF}>{c.empresa_nombre}</td>
-                        <td className="px-3 py-2 text-right font-mono text-ink-2">
-                          {c.score !== null ? `${Math.round(c.score ?? 0)}` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        {fase.documentos_path && fase.documentos_path.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-[12px] text-ink-3 hover:text-ink-2 list-none flex items-center gap-1.5" style={OF}>
+              {fase.documentos_path.length} documento{fase.documentos_path.length > 1 ? 's' : ''} adjunto{fase.documentos_path.length > 1 ? 's' : ''}
+            </summary>
+            <ul className="mt-1.5 space-y-0.5 pl-3">
+              {fase.documentos_path.map((p, i) => (
+                <li key={i} className="text-[12px] text-ink-2 font-mono">{basename(p)}</li>
+              ))}
+            </ul>
+          </details>
+        )}
 
-          <a
-            href={api.licitaciones.resumenDocxUrl(licitacionId, fase.id)}
-            download
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium border border-border-subtle hover:bg-surface text-ink-2 transition-colors duration-150"
-            style={OF}
+        <button
+          type="button"
+          onClick={onAgregar}
+          className="flex items-center gap-1.5 text-[12px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
+          style={OF}
+        >
+          <IconPlus />
+          Agregar nueva versión
+        </button>
+      </div>
+
+      {/* ─── COLUMNA DERECHA — Empresas analizadas ─── */}
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide" style={OF}>Empresas analizadas</p>
+
+        {hayEmpresas && porEmpresaData ? (
+          <div className="space-y-2">
+            {Object.entries(porEmpresaData).map(([empId, empData]) => {
+              const nombre =
+                comparaciones.find(c => c.empresa_id === empId)?.empresa_nombre ??
+                (generalData?.empresas_candidatas?.find(ec => ec.empresa_id === empId)?.nombre_empresa) ??
+                empId.slice(0, 8)
+              return (
+                <EmpresaAnalisisCard
+                  key={empId}
+                  empresaId={empId}
+                  empresaNombre={nombre}
+                  data={empData}
+                  licitacionId={licitacionId}
+                  faseId={fase.id}
+                  tipoFase={fase.tipo_fase}
+                />
+              )
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-8 text-center" style={{ opacity: 0.45 }}>
+            <IconUsers />
+            <p className="text-[14px] font-semibold text-ink mt-3 mb-1" style={OF}>Sin empresas analizadas aún</p>
+            <p className="text-[13px] text-ink-2 leading-snug max-w-[240px]" style={OF}>
+              Selecciona empresas en el panel inferior y haz clic en "Analizar empresas seleccionadas"
+            </p>
+          </div>
+        )}
+
+        <div className="border-t border-border-subtle pt-3">
+          <button
+            type="button"
+            onClick={() => setShowSelector(v => !v)}
+            className="flex items-center gap-1.5 w-full text-left px-3 py-2 rounded-[8px] text-[13px] border hover:bg-[#FEF0ED] transition-colors duration-150"
+            style={{ ...OF, fontWeight: 600, color: '#E8593C', borderColor: '#E8593C' }}
           >
-            <IconDownload />
-            Descargar resumen general (.docx)
-          </a>
-
-          {!showSelector && (
-            <button
-              type="button"
-              onClick={() => setShowSelector(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] text-[13px] font-medium border text-[#E8593C] hover:bg-[#FEF0ED] transition-colors duration-150"
-              style={{ ...OF, borderColor: '#E8593C' }}
-            >
-              <IconSpark />
-              {hayEmpresas ? 'Analizar más empresas' : 'Analizar empresas seleccionadas'}
-            </button>
-          )}
+            <IconSpark />
+            {hayEmpresas ? 'Analizar más empresas' : 'Analizar empresas seleccionadas'}
+            <span className="ml-auto">
+              <IconChevron open={showSelector} />
+            </span>
+          </button>
 
           {showSelector && (
-            <div className="border border-border-subtle rounded-[10px] p-4 space-y-3">
+            <div className="mt-3 border border-border-subtle rounded-[10px] p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-medium text-ink" style={OF}>Seleccionar empresas a analizar</p>
                 <button
@@ -669,57 +736,7 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
             </div>
           )}
         </div>
-      )}
-
-      {hayEmpresas && porEmpresaData && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide" style={OF}>Análisis por empresa</p>
-          {Object.entries(porEmpresaData).map(([empId, empData]) => {
-            const nombre =
-              comparaciones.find(c => c.empresa_id === empId)?.empresa_nombre ??
-              (generalData?.empresas_candidatas?.find(ec => ec.empresa_id === empId)?.nombre_empresa) ??
-              empId.slice(0, 8)
-            return (
-              <EmpresaAnalisisCard
-                key={empId}
-                empresaId={empId}
-                empresaNombre={nombre}
-                data={empData}
-                licitacionId={licitacionId}
-                faseId={fase.id}
-                tipoFase={fase.tipo_fase}
-              />
-            )
-          })}
-        </div>
-      )}
-
-      {!hayGeneral && !hayEmpresas && (
-        <p className="text-[13px] text-ink-3" style={OF}>Sin análisis disponible. Sube documentos para iniciar.</p>
-      )}
-
-      {fase.documentos_path && fase.documentos_path.length > 0 && (
-        <details>
-          <summary className="cursor-pointer text-[12px] text-ink-3 hover:text-ink-2 list-none flex items-center gap-1.5" style={OF}>
-            {fase.documentos_path.length} documento{fase.documentos_path.length > 1 ? 's' : ''} adjunto{fase.documentos_path.length > 1 ? 's' : ''}
-          </summary>
-          <ul className="mt-1.5 space-y-0.5 pl-3">
-            {fase.documentos_path.map((p, i) => (
-              <li key={i} className="text-[12px] text-ink-2 font-mono">{basename(p)}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      <button
-        type="button"
-        onClick={onAgregar}
-        className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-3 hover:text-ink-2 transition-colors duration-150"
-        style={OF}
-      >
-        <IconPlus />
-        Agregar nueva versión
-      </button>
+      </div>
     </div>
   )
 }
@@ -923,8 +940,8 @@ export default function LicitacionTimeline({
   const fasesDe = (tipo: TipoFase) =>
     fases.filter(f => f.tipo_fase === tipo).sort((a, b) => b.version - a.version)
 
-  const comparacionesPliegoDefinitivo = comparaciones.filter(c => c.ronda === 'definitivo')
-  const comparacionesSeleccionadas    = comparaciones.filter(c => c.ronda === 'definitivo' && c.seleccionada)
+  const comparacionesPliegoDefinitivo = comparaciones.filter(c => c.ronda === 'pliego_definitivo')
+  const comparacionesSeleccionadas    = comparaciones.filter(c => c.ronda === 'pliego_definitivo' && c.seleccionada)
 
   // Determinar cuántas fases tienen datos (para barra de progreso)
   const tieneDatos = (tipo: TipoFase): boolean => {
@@ -981,7 +998,9 @@ export default function LicitacionTimeline({
       )
     }
     // prepliego / pliego_definitivo
-    const comparacionesFase = tipo === 'pliego_definitivo' ? comparacionesPliegoDefinitivo : []
+    const comparacionesFase = tipo === 'pliego_definitivo'
+      ? comparacionesPliegoDefinitivo
+      : comparaciones.filter(c => c.ronda === 'prepliego')
     if (!ultimaFase) {
       return (
         <button

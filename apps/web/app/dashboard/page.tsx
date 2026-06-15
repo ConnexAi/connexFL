@@ -5,7 +5,7 @@ import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api, ApiUnauthorizedError } from '@/lib/api'
-import type { EmpresaListItem, PliegoListItem, EstadoPliego, ComparacionConEmpresa } from '@/lib/types'
+import type { EmpresaListItem, LicitacionListItem, ComparacionConEmpresa } from '@/lib/types'
 import { Plus, FileText, ArrowRight, Building2, TrendingUp } from 'lucide-react'
 import {
   BarChart, Bar, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip,
@@ -23,11 +23,10 @@ function formatDate(iso: string): string {
   return `${day} ${month} ${year}`
 }
 
-const estadoPliegoMap: Record<EstadoPliego, { label: string; cls: string }> = {
-  pendiente:  { label: 'Pendiente',  cls: 'bg-[#F3F4F6] text-[#6B7280]' },
-  analizando: { label: 'Analizando', cls: 'bg-[#FEF9C3] text-[#854D0E]' },
-  listo:      { label: 'Listo',      cls: 'bg-[#DCFCE7] text-[#15803D]' },
-  error:      { label: 'Error',      cls: 'bg-[#FEE2E2] text-[#DC2626]' },
+const estadoLicitacionMap: Record<string, { label: string; cls: string }> = {
+  activa:     { label: 'Activa',     cls: 'bg-[#DCFCE7] text-[#15803D]' },
+  adjudicada: { label: 'Adjudicada', cls: 'bg-[#FEF9C3] text-[#854D0E]' },
+  archivada:  { label: 'Archivada',  cls: 'bg-[#F3F4F6] text-[#6B7280]' },
 }
 
 function SkeletonLine({ className }: { className?: string }) {
@@ -60,7 +59,7 @@ function LoadingSkeleton() {
   )
 }
 
-function buildChartData(pliegos: PliegoListItem[]) {
+function buildChartData(licitaciones: LicitacionListItem[]) {
   const last6: Record<string, number> = {}
   const now = new Date()
   for (let i = 5; i >= 0; i--) {
@@ -68,8 +67,8 @@ function buildChartData(pliegos: PliegoListItem[]) {
     const key = d.toLocaleString('es-CO', { month: 'short' }).replace(/\./g, '')
     last6[key] = 0
   }
-  for (const p of pliegos) {
-    const d = new Date(p.created_at)
+  for (const l of licitaciones) {
+    const d = new Date(l.created_at)
     const key = d.toLocaleString('es-CO', { month: 'short' }).replace(/\./g, '')
     if (key in last6) last6[key] = (last6[key] ?? 0) + 1
   }
@@ -94,7 +93,7 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const [empresas, setEmpresas] = useState<EmpresaListItem[]>([])
-  const [pliegos, setPliegos] = useState<PliegoListItem[]>([])
+  const [licitaciones, setLicitaciones] = useState<LicitacionListItem[]>([])
   const [comparaciones, setComparaciones] = useState<ComparacionConEmpresa[]>([])
   const [isDataLoading, setIsDataLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -122,8 +121,8 @@ export default function DashboardPage() {
     if (!session) return
     setIsDataLoading(true)
     setApiError(null)
-    Promise.all([api.empresas.list(), api.pliegos.list(), api.comparaciones.list()])
-      .then(([e, p, c]) => { setEmpresas(e); setPliegos(p); setComparaciones(c) })
+    Promise.all([api.empresas.list(), api.licitaciones.list(), api.comparaciones.list()])
+      .then(([e, l, c]) => { setEmpresas(e); setLicitaciones(l); setComparaciones(c) })
       .catch((err: unknown) => {
         if (err instanceof ApiUnauthorizedError) {
           router.push('/login')
@@ -137,11 +136,11 @@ export default function DashboardPage() {
   if (isPending || isDataLoading) return <LoadingSkeleton />
   if (!session) return null
 
-  const totalListos = pliegos.filter((p) => p.estado === 'listo').length
-  const recentPliegos = pliegos.slice(0, 8)
-  const isEmpty = empresas.length === 0 && pliegos.length === 0
+  const totalListos = licitaciones.filter((l) => l.ultima_fase_listo !== null).length
+  const recentLicitaciones = licitaciones.slice(0, 8)
+  const isEmpty = empresas.length === 0 && licitaciones.length === 0
   const firstName = session.user?.name?.split(' ')[0] ?? 'abogado'
-  const chartData = buildChartData(pliegos)
+  const chartData = buildChartData(licitaciones)
   const scoreData = buildScoreData(comparaciones)
 
   if (apiError) {
@@ -184,13 +183,13 @@ export default function DashboardPage() {
               </div>
               <div className="w-px h-8 bg-border" />
               <div>
-                <p className="text-[36px] leading-none text-ink" style={{ ...OF, fontWeight: 700 }}>{pliegos.length}</p>
-                <p className="text-[13px] text-ink-3 mt-1" style={{ ...OF, fontWeight: 500 }}>Pliegos</p>
+                <p className="text-[36px] leading-none text-ink" style={{ ...OF, fontWeight: 700 }}>{licitaciones.length}</p>
+                <p className="text-[13px] text-ink-3 mt-1" style={{ ...OF, fontWeight: 500 }}>Licitaciones</p>
               </div>
               <div className="w-px h-8 bg-border" />
               <div>
                 <p className="text-[36px] leading-none text-ink" style={{ ...OF, fontWeight: 700 }}>{totalListos}</p>
-                <p className="text-[13px] text-ink-3 mt-1" style={{ ...OF, fontWeight: 500 }}>Analizados</p>
+                <p className="text-[13px] text-ink-3 mt-1" style={{ ...OF, fontWeight: 500 }}>Analizadas</p>
               </div>
             </div>
           </div>
@@ -284,12 +283,12 @@ export default function DashboardPage() {
                   icon: <Building2 size={18} color="#374151" />,
                 },
                 {
-                  label: 'Pliegos cargados',
-                  value: pliegos.length,
+                  label: 'Licitaciones activas',
+                  value: licitaciones.filter(l => l.estado === 'activa').length,
                   icon: <FileText size={18} color="#374151" />,
                 },
                 {
-                  label: 'Análisis listos',
+                  label: 'Fases analizadas',
                   value: totalListos,
                   icon: <TrendingUp size={18} color="#374151" />,
                 },
@@ -308,42 +307,43 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Pliegos recientes — full width */}
+            {/* Licitaciones recientes — full width */}
             <section className="bg-surface rounded-xl border border-border shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
-                <h2 className="text-[18px] text-ink" style={{ ...OF, fontWeight: 600 }}>Pliegos recientes</h2>
+                <h2 className="text-[18px] text-ink" style={{ ...OF, fontWeight: 600 }}>Licitaciones recientes</h2>
                 <Link href="/dashboard/pliegos"
                   className="text-[13px] text-terracotta hover:text-terracotta-hover transition-colors"
                   style={{ ...OF, fontWeight: 600 }}>
-                  Ver todos
+                  Ver todas
                 </Link>
               </div>
-              {recentPliegos.length === 0 ? (
+              {recentLicitaciones.length === 0 ? (
                 <div className="px-6 py-8 text-center">
-                  <p className="text-[14px] text-ink-3" style={OF}>Sin pliegos aún.</p>
+                  <p className="text-[14px] text-ink-3" style={OF}>Sin licitaciones aún.</p>
                   <Link href="/dashboard/licitaciones/nueva"
                     className="inline-flex items-center gap-1.5 mt-4 text-[14px] text-terracotta hover:text-terracotta-hover transition-colors"
                     style={{ ...OF, fontWeight: 600 }}>
                     <Plus size={13} />
-                    Subir pliego
+                    Nueva licitación
                   </Link>
                 </div>
               ) : (
                 <div>
-                  {recentPliegos.map((p) => {
-                    const { label, cls } = estadoPliegoMap[p.estado]
+                  {recentLicitaciones.map((l) => {
+                    const badge = estadoLicitacionMap[l.estado] ?? { label: 'Activa', cls: 'bg-[#DCFCE7] text-[#15803D]' }
+                    const { label, cls } = badge
                     return (
                       <Link
-                        key={p.id}
-                        href={`/dashboard/pliegos/${p.id}`}
+                        key={l.id}
+                        href={`/dashboard/licitaciones/${l.id}`}
                         className="flex items-center gap-3 px-6 py-3.5 border-b border-border last:border-0 hover:bg-bg transition-colors group"
                       >
                         <div className="w-8 h-8 rounded-lg bg-[#F3F4F6] flex items-center justify-center shrink-0">
                           <FileText size={14} color="#374151" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[14px] text-ink truncate" style={{ ...OF, fontWeight: 600 }}>{p.nombre}</p>
-                          <p className="text-[13px] text-ink-3 mt-0.5 date-caption">{formatDate(p.created_at)}</p>
+                          <p className="text-[14px] text-ink truncate" style={{ ...OF, fontWeight: 600 }}>{l.nombre}</p>
+                          <p className="text-[13px] text-ink-3 mt-0.5 date-caption">{formatDate(l.created_at)}</p>
                         </div>
                         <span className={`inline-flex items-center h-[22px] px-2.5 rounded-[6px] text-[12px] whitespace-nowrap shrink-0 ${cls}`}
                           style={{ ...OF, fontWeight: 600 }}>

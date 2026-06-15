@@ -21,6 +21,7 @@ function formatDate(iso: string): string {
 
 interface PliegoGroup {
   pliegoId: string
+  licitacionId: string | null
   pliegoNombre: string
   analisisDate: string
   comparaciones: ComparacionConEmpresa[]
@@ -38,8 +39,10 @@ function buildGroups(comparaciones: ComparacionConEmpresa[], pliegosMap: Map<str
     items.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     const pliego = pliegosMap.get(pliegoId)
     const analisisDate = items.reduce((latest, c) => c.created_at > latest ? c.created_at : latest, '')
+    const licitacionId = items[0]?.pliego_licitacion_id ?? null
     groups.push({
       pliegoId,
+      licitacionId,
       pliegoNombre: pliego?.nombre ?? `Pliego ${pliegoId.slice(0, 8)}`,
       analisisDate,
       comparaciones: items,
@@ -136,7 +139,9 @@ function PliegoCard({ group }: { group: PliegoGroup }) {
           </div>
         </div>
         <Link
-          href={`/dashboard/pliegos/${group.pliegoId}`}
+          href={group.licitacionId
+            ? `/dashboard/licitaciones/${group.licitacionId}`
+            : `/dashboard/pliegos/${group.pliegoId}`}
           className="flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg text-[13px] text-[#374151] border border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] transition-colors"
           style={{ ...OF, fontWeight: 600 }}
         >
