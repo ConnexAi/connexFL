@@ -520,25 +520,24 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
           ) as keyof typeof VEREDICTO_CONFIG | null,
         }))
 
-  if (fase.estado === 'procesando') {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[#FEF9C3] border border-[#854D0E]/20">
-        <span className="text-[12px] font-medium text-[#854D0E]" style={OF}>Procesando…</span>
-        <span className="text-[12px] text-[#854D0E]" style={OF}>El análisis está en curso. Recarga en unos momentos.</span>
-      </div>
-    )
-  }
-
-  if (fase.estado === 'error' && !hayGeneral) {
-    return (
-      <div className="flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20">
-        <span className="text-[13px] text-[#DC2626]" style={OF}>Error en el análisis</span>
-        <button type="button" onClick={onAgregar} className="text-[12px] text-[#DC2626] underline" style={OF}>Reintentar</button>
-      </div>
-    )
-  }
-
+  // Sin datos generales: bloques de estado completo
   if (!hayGeneral) {
+    if (fase.estado === 'procesando') {
+      return (
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[#FEF9C3] border border-[#854D0E]/20">
+          <span className="text-[12px] font-medium text-[#854D0E]" style={OF}>Procesando…</span>
+          <span className="text-[12px] text-[#854D0E]" style={OF}>El análisis está en curso. Recarga en unos momentos.</span>
+        </div>
+      )
+    }
+    if (fase.estado === 'error') {
+      return (
+        <div className="flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20">
+          <span className="text-[13px] text-[#DC2626]" style={OF}>Error en el análisis</span>
+          <button type="button" onClick={onAgregar} className="text-[12px] text-[#DC2626] underline" style={OF}>Reintentar</button>
+        </div>
+      )
+    }
     return (
       <div className="space-y-3">
         <p className="text-[13px] text-ink-3" style={OF}>Sin análisis disponible. Sube documentos para iniciar.</p>
@@ -556,10 +555,10 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'start', width: '100%' }}>
 
       {/* ─── COLUMNA IZQUIERDA — Análisis de la licitación ─── */}
-      <div className="space-y-4">
+      <div className="space-y-4" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
         <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide" style={OF}>Análisis de la licitación</p>
 
         {generalData?.resumen_ejecutivo && (
@@ -665,10 +664,25 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
       </div>
 
       {/* ─── COLUMNA DERECHA — Empresas analizadas ─── */}
-      <div className="space-y-3">
+      <div className="space-y-3" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
         <p className="text-[11px] font-semibold text-ink-2 uppercase tracking-wide" style={OF}>Empresas analizadas</p>
 
-        {hayEmpresas && porEmpresaData ? (
+        {fase.estado === 'procesando' ? (
+          // Skeleton mientras analizan empresas
+          <div className="space-y-2">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-[68px] rounded-[10px] bg-[#F3F4F6] animate-pulse" />
+            ))}
+            <p className="text-[13px] text-ink-3 mt-1" style={OF}>Analizando empresas…</p>
+          </div>
+        ) : fase.estado === 'error' && !hayEmpresas ? (
+          // Error en análisis de empresas
+          <div className="flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-[#FEE2E2] border border-[#DC2626]/20">
+            <span className="text-[13px] text-[#DC2626]" style={OF}>Error al analizar empresas</span>
+            <button type="button" onClick={onAgregar} className="text-[12px] text-[#DC2626] underline" style={OF}>Reintentar</button>
+          </div>
+        ) : hayEmpresas && porEmpresaData ? (
+          // Cards de empresas analizadas
           <div className="space-y-2">
             {Object.entries(porEmpresaData).map(([empId, empData]) => {
               const nombre =
@@ -689,6 +703,7 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
             })}
           </div>
         ) : (
+          // Empty state
           <div className="flex flex-col items-center py-8 text-center" style={{ opacity: 0.45 }}>
             <IconUsers />
             <p className="text-[14px] font-semibold text-ink mt-3 mb-1" style={OF}>Sin empresas analizadas aún</p>
@@ -698,7 +713,8 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
           </div>
         )}
 
-        <div className="border-t border-border-subtle pt-3">
+        {/* Selector solo cuando no está procesando */}
+        {fase.estado !== 'procesando' && <div className="border-t border-border-subtle pt-3">
           <button
             type="button"
             onClick={() => setShowSelector(v => !v)}
@@ -735,7 +751,7 @@ function FaseConAnalisis({ fase, licitacionId, comparaciones, onAnalyzarEmpresas
               />
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   )
@@ -914,6 +930,7 @@ export interface LicitacionTimelineProps {
   onAgregarFase: (tipo: TipoFase) => void
   onAnalyzarEmpresas: (faseId: string, empresaIds: string[]) => Promise<void>
   onEliminarFase?: (faseId: string, tipoFase: TipoFase) => Promise<void>
+  onRefetch?: () => void
 }
 
 export default function LicitacionTimeline({
@@ -923,12 +940,21 @@ export default function LicitacionTimeline({
   onAgregarFase,
   onAnalyzarEmpresas,
   onEliminarFase,
+  onRefetch,
 }: LicitacionTimelineProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [nodoCritico, setNodoCritico] = useState<TipoFase | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ faseId: string; tipoFase: TipoFase } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Polling: refetch cada 5s mientras alguna fase esté procesando
+  const hayProcesando = fases.some(f => f.estado === 'procesando')
+  useEffect(() => {
+    if (!hayProcesando || !onRefetch) return
+    const interval = setInterval(onRefetch, 5000)
+    return () => clearInterval(interval)
+  }, [hayProcesando, onRefetch])
 
   useEffect(() => {
     const faseParam = searchParams.get('fase')
@@ -1136,8 +1162,14 @@ export default function LicitacionTimeline({
       {/* Panel expandido del nodo seleccionado */}
       {nodoCritico && (
         <div
-          className="rounded-xl border border-border bg-surface p-5 space-y-4"
+          className="space-y-5"
           style={{
+            width: '100%',
+            background: '#FFFFFF',
+            border: '1px solid #E8ECF0',
+            borderRadius: 16,
+            padding: 32,
+            marginTop: 24,
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             animation: 'timeline-panel-in 0.18s ease-out both',
           }}

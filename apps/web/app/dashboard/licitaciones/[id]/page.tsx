@@ -236,7 +236,7 @@ export default function LicitacionDetailPage() {
     setIsLoading(true)
     Promise.all([
       api.licitaciones.get(id),
-      api.comparaciones.list({ licitacionId: id, ronda: 'definitivo' }),
+      api.comparaciones.list({ licitacionId: id }),
     ])
       .then(([lic, comps]) => {
         setLicitacion(lic)
@@ -244,6 +244,20 @@ export default function LicitacionDetailPage() {
       })
       .catch(() => setError('No se pudo cargar la licitación.'))
       .finally(() => setIsLoading(false))
+  }
+
+  // Refetch silencioso para polling (sin activar el skeleton)
+  function refetchSilent() {
+    if (!session) return
+    Promise.all([
+      api.licitaciones.get(id),
+      api.comparaciones.list({ licitacionId: id }),
+    ])
+      .then(([lic, comps]) => {
+        setLicitacion(lic)
+        setComparaciones(comps)
+      })
+      .catch(() => {}) // falla silenciosamente durante polling
   }
 
   useEffect(() => { loadData() }, [session, id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -315,41 +329,41 @@ export default function LicitacionDetailPage() {
 
       {/* Contenido */}
       <div className="flex-1 px-8 py-7 overflow-auto">
-        <div className="max-w-3xl">
 
-          {/* Header licitación */}
-          <div className="mb-8">
-            <div className="flex items-start gap-3 mb-1">
-              <h1 className="text-[20px] font-bold text-ink leading-tight flex-1 min-w-0">
-                {licitacion.nombre}
-              </h1>
-              <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium shrink-0 ${estadoBadge.cls}`}>
-                {estadoBadge.label}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-ink-3 mt-2">
-              {licitacion.secop_id && (
-                <span>SECOP II: <span className="text-ink-2 font-mono">{licitacion.secop_id}</span></span>
-              )}
-              {licitacion.entidad_contratante && <span>{licitacion.entidad_contratante}</span>}
-              <span>Creada {new Date(licitacion.created_at).toLocaleDateString('es-CO', {
-                day: '2-digit', month: 'short', year: 'numeric',
-              })}</span>
-            </div>
+        {/* Header licitación — max-width razonable para legibilidad */}
+        <div className="mb-8 max-w-2xl">
+          <div className="flex items-start gap-3 mb-1">
+            <h1 className="text-[20px] font-bold text-ink leading-tight flex-1 min-w-0">
+              {licitacion.nombre}
+            </h1>
+            <span className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium shrink-0 ${estadoBadge.cls}`}>
+              {estadoBadge.label}
+            </span>
           </div>
 
-          {/* Timeline */}
-          <LicitacionTimeline
-            fases={licitacion.fases}
-            licitacionId={licitacion.id}
-            pliegoId={licitacion.pliego_id}
-            comparaciones={comparaciones}
-            onAgregarFase={openModal}
-            onAnalyzarEmpresas={handleAnalyzarEmpresas}
-            onEliminarFase={handleEliminarFase}
-          />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-ink-3 mt-2">
+            {licitacion.secop_id && (
+              <span>SECOP II: <span className="text-ink-2 font-mono">{licitacion.secop_id}</span></span>
+            )}
+            {licitacion.entidad_contratante && <span>{licitacion.entidad_contratante}</span>}
+            <span>Creada {new Date(licitacion.created_at).toLocaleDateString('es-CO', {
+              day: '2-digit', month: 'short', year: 'numeric',
+            })}</span>
+          </div>
         </div>
+
+        {/* Timeline — ancho completo */}
+        <LicitacionTimeline
+          fases={licitacion.fases}
+          licitacionId={licitacion.id}
+          pliegoId={licitacion.pliego_id}
+          comparaciones={comparaciones}
+          onAgregarFase={openModal}
+          onAnalyzarEmpresas={handleAnalyzarEmpresas}
+          onEliminarFase={handleEliminarFase}
+          onRefetch={refetchSilent}
+        />
+
       </div>
 
       {/* Modal */}
