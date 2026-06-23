@@ -60,7 +60,7 @@
           "parameters": [
             {
               "name": "x-api-key",
-              "value": "REMOVED_ANTHROPIC_KEY"
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
             },
             {
               "name": "anthropic-version",

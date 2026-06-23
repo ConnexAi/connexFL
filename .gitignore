@@ -5,3 +5,4 @@ dist/
 .env.local
 .turbo/
 *.tsbuildinfo
+docker-compose.override.yml

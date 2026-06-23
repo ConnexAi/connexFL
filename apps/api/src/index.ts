@@ -14,7 +14,7 @@ import empresasRouter from './routes/empresas'
 import pliegosRouter from './routes/pliegos'
 import comparacionesRouter from './routes/comparaciones'
 import anexosRouter from './routes/anexos'
-import licitacionesRouter from './routes/licitaciones'
+import licitacionesRouter, { licitacionesN8nRouter } from './routes/licitaciones'
 import { informesRouter } from './routes/informes'
 
 const app = new Hono()
@@ -61,6 +61,9 @@ app.route('/api/comparaciones', comparacionesRouter)
 
 app.use('/api/anexos/*', authMiddleware)
 app.route('/api/anexos', anexosRouter)
+
+// n8n internal callbacks — must be BEFORE authMiddleware (no session cookie)
+app.route('/api/licitaciones', licitacionesN8nRouter)
 
 app.use('/api/licitaciones/*', authMiddleware)
 app.route('/api/licitaciones', licitacionesRouter)

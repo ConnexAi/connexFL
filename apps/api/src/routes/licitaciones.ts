@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { Pool } from 'pg'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
@@ -9,6 +10,78 @@ import { prepareDocumentsForClaude } from '../services/pdf-extractor'
 import { generarResumenDocx } from '../services/resumen-docx'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+// ---------------------------------------------------------------------------
+// n8n internal router — authenticated via x-webhook-secret, not session
+// Registered BEFORE authMiddleware in index.ts so it bypasses session auth
+// ---------------------------------------------------------------------------
+export const licitacionesN8nRouter = new Hono()
+
+licitacionesN8nRouter.post('/:id/fases/:faseId/empresas/:empresaId/resultado', async (c: Context) => {
+  const secret = c.req.header('x-webhook-secret')
+  console.log('[N8N] x-webhook-secret recibido:', JSON.stringify(secret))
+  console.log('[N8N] N8N_WEBHOOK_SECRET env:', JSON.stringify(process.env.N8N_WEBHOOK_SECRET))
+  if (!secret || secret !== process.env.N8N_WEBHOOK_SECRET) {
+    console.log('[N8N] Auth FALLIDA — secret no coincide o env var no definida')
+    return c.json({ error: 'No autorizado' }, 401)
+  }
+
+  const { id: licitacionId, faseId, empresaId } = c.req.param() as {
+    id: string; faseId: string; empresaId: string
+  }
+  console.log('[N8N] Auth OK', { licitacionId, faseId, empresaId })
+
+  try {
+    const body = await c.req.json() as { resultado?: unknown }
+    console.log('[N8N] Body OK, resultado type:', typeof body.resultado,
+      typeof body.resultado === 'string' ? `length=${body.resultado.length}` : '')
+    if (body.resultado === undefined || body.resultado === null) {
+      return c.json({ error: 'resultado es requerido' }, 400)
+    }
+
+    const resultadoStr = typeof body.resultado === 'string'
+      ? body.resultado
+      : JSON.stringify(body.resultado)
+
+    const faseCheck = await pool.query(
+      'SELECT id FROM licitacion_fases WHERE id = $1 AND licitacion_id = $2',
+      [faseId, licitacionId]
+    )
+    console.log('[N8N] faseCheck rows:', faseCheck.rows.length)
+    if (faseCheck.rows.length === 0) {
+      console.log('[N8N] Fase no encontrada — faseId:', faseId, 'licitacionId:', licitacionId)
+      return c.json({ error: 'Fase no encontrada' }, 404)
+    }
+
+    console.log('[N8N] Ejecutando UPDATE analisis_claude...')
+    // jsonb_set anidado: PostgreSQL solo crea el ÚLTIMO elemento del path cuando
+    // create_missing=true — si el intermedio ('por_empresa') no existe, falla
+    // silenciosamente. Solución: garantizar primero que 'por_empresa' exista,
+    // luego insertar el empresaId dentro.
+    const updateResult = await pool.query(
+      `UPDATE licitacion_fases
+       SET analisis_claude = jsonb_set(
+             jsonb_set(
+               COALESCE(analisis_claude, '{}'::jsonb),
+               ARRAY['por_empresa'],
+               COALESCE(analisis_claude->'por_empresa', '{}'::jsonb)
+             ),
+             ARRAY['por_empresa', $1],
+             $2::jsonb
+           ),
+           estado = 'listo',
+           updated_at = NOW()
+       WHERE id = $3`,
+      [empresaId, resultadoStr, faseId]
+    )
+    console.log('[N8N] UPDATE OK — rowCount:', updateResult.rowCount)
+
+    return c.json({ ok: true })
+  } catch (error) {
+    console.error('[N8N] ERROR en handler:', error)
+    return c.json({ error: 'Error al guardar resultado' }, 500)
+  }
+})
 
 const TIPO_FASE_SLUG: Record<string, string> = {
   prepliego:                'prepliego',
@@ -222,6 +295,22 @@ licitacionesRouter.post('/:id/fases', async (c) => {
       const documentos = await prepareDocumentsForClaude(documentosPath)
 
       if (tipoFase === 'prepliego') {
+        // Crear pliego asociado para que el workflow analisis-prepliego-empresa
+        // pueda hacer INSERT en comparaciones vía: FROM pliegos WHERE fase_id = $faseId
+        await pool.query(
+          `INSERT INTO pliegos (id, abogado_id, nombre, secop_id, archivos_path, estado, licitacion_id, fase_id)
+           SELECT $1, $2, $3, $4, $5, 'pendiente', $6, $7
+           WHERE NOT EXISTS (SELECT 1 FROM pliegos WHERE fase_id = $7)`,
+          [
+            uuidv4(),
+            abogado.rows[0].id,
+            licitacion.nombre,
+            licitacion.secop_id,
+            documentosPath.length > 0 ? documentosPath : null,
+            licitacionId,
+            faseId,
+          ]
+        )
         dispatchWebhook('analisis-prepliego-general', {
           faseId,
           licitacionId,
