@@ -6,3 +6,14 @@ dist/
 .turbo/
 *.tsbuildinfo
 docker-compose.override.yml
+
+# Documentos subidos por usuarios: nunca se versionan
+apps/api/uploads/
+uploads/
+
+# Herramientas locales de IA y del sistema
+.claude/
+.agents/
+.impeccable/
+skills-lock.json
+.DS_Store

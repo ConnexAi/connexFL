@@ -138,7 +138,7 @@
           "parameters": [
             {
               "name": "x-webhook-secret",
-              "value": "REMOVED_WEBHOOK_SECRET"
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
             },
             {
               "name": "content-type",
